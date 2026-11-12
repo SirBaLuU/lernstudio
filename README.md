@@ -13,6 +13,8 @@ Dann http://localhost:8000 öffnen (per Doppelklick auf `index.html` gehen die T
 
 ## Neues Thema hinzufügen
 
+Ausführliche Anleitung mit Vorlage: `tools/neues_thema.md`. Prüfen: `python tools/check_thema.py` (alle Themen) – muss `OK` melden.
+
 1. Datei `themen/<slug>.json` anlegen (Aufbau wie `strahlentherapie.json`):
    `{ "slug", "title", "fach", "desc", "accent", "chapters": [ { "id", "nr", "title", "links"?, "sections": [ { "id", "title", "blocks": [...], "links"? } ], "questions": [...] } ] }`
    - Blöcke: `p` (text), `ul`/`steps` (items), `table` (head, rows), `merke` (text)
