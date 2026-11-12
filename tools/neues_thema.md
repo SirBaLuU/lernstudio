@@ -9,7 +9,7 @@ Ein Thema ist eine JSON-Datei in `themen/`. Kein Build, kein Server-Code.
 3. Eintrag in `themen/index.json` ergänzen: `slug`, `title`, `fach`, `desc`, `accent` (Farbe), `count` (Anzahl Fragen), `chapters` (Anzahl Kapitel).
 4. Prüfen: `python tools/check_thema.py themen/<slug>.json` → muss `OK` melden.
 5. Optional: Fragen ohne Abschnitt den Folien zuordnen: `python tools/fragen_zuordnen.py themen/<slug>.json --schreiben` (danach Stichprobe ansehen, `"secAuto": true` markiert die Zuordnung).
-6. In `sw.js` die Cache-Version `lernstudio-vN` erhöhen, dann `node tests/smoke.js` (Server auf Port 8000 muss laufen).
+6. In `sw.js` `themen/<slug>.json` in `SHELL` eintragen (offline verfügbar) und die Cache-Version `lernstudio-vN` erhöhen, dann `node tests/smoke.js` (Server auf Port 8000 muss laufen).
 
 ## Regeln für gute Fragen
 

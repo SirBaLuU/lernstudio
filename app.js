@@ -147,6 +147,7 @@ function drawCrumbs(r) {
 }
 async function route() {
   const r = parse();
+  if (!R || r.view !== R.el) clearInterval(timerId); // Zeitlimit läuft nicht im Hintergrund weiter
   try { const need = r.slug && (!T || T.slug !== r.slug); if (need) { show('home'); $('#v-home').innerHTML = '<div class="loading">Lade Thema …</div>'; } await Promise.all([loadIndex(), need && loadTopic(r.slug)]); }
   catch (e) { toast('Thema konnte nicht geladen werden.'); if (r.slug) return go('home'); }
   if (r.view === 'lektion' && !LS) return goReplace(T.slug + '/start');
@@ -307,8 +308,8 @@ RENDER.lernen = el => {
   const draw = () => {
     const q = L.q.trim().toLowerCase();
     if (q.length >= 2) { const hits = []; CH.forEach(k => k.sections.forEach(s => { const tx = secText(s), i = tx.toLowerCase().indexOf(q); if (i >= 0) hits.push({ k, s, snip: tx.slice(Math.max(0, i - 60), i + 90) }); }));
-      const hl = h => h.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), m => `<mark>${m}</mark>`);
-      body.innerHTML = `<div class="hits"><p class="muted">${hits.length} Treffer</p>${hits.map(h => `<button class="hit" data-goto="${h.k.id}|${esc(h.s.id)}"><strong>${esc(chName(h.k))}, ${esc(h.s.title)}</strong><small>…${hl(esc(h.snip))}…</small></button>`).join('')}</div>`; return; }
+      const hl = h => h.split(new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi')).map((x, i) => i % 2 ? `<mark>${esc(x)}</mark>` : esc(x)).join('');
+      body.innerHTML = `<div class="hits"><p class="muted">${hits.length} Treffer</p>${hits.map(h => `<button class="hit" data-goto="${h.k.id}|${esc(h.s.id)}"><strong>${esc(chName(h.k))}, ${esc(h.s.title)}</strong><small>…${hl(h.snip)}…</small></button>`).join('')}</div>`; return; }
     // Erklärvideo-Suche nur als Link (kein eingebettetes Video, keine Anfrage an YouTube ohne Klick)
     const vid = G.opt.vid ? `<p class="vidlink"><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(T.title + ' ' + chTitle(c) + ' einfach erklärt')}" target="_blank" rel="noopener">Erklärvideo zu „${esc(chTitle(c))}“ auf YouTube suchen</a> <span class="muted">Fremde Inhalte, nicht geprüft</span></p>` : '';
     body.innerHTML = linksHTML(c.links, 'Zum Nachlesen im Internet') + vid + c.sections.map(s => secHTML(c.id, s)).join('');
@@ -336,9 +337,9 @@ RENDER.karten = el => {
   el.innerHTML = `
   <div class="section-head"><div><h2>Karteikarten</h2><p class="muted">Erst selbst antworten, dann umdrehen (Leertaste). Runden haben höchstens 12 Karten.</p></div><span class="tag num">${K.list.length} übrig</span></div>
   <div class="chips">${CH.map(c => `<button class="chip" aria-pressed="${K.chapters.includes(c.id)}" data-c="${c.id}">${esc(chName(c))}</button>`).join('')}</div>
-  ${q ? `<div class="flash-wrap"><button class="flash ${K.flipped ? 'flipped' : ''}" id="flash" aria-label="Karte umdrehen"><div class="flash-inner">
-    <div class="face front"><small>${esc(chName(CHBY[q.ch]))}</small><div class="q">${q.type === 'cloze' ? esc(q.q).replace('___', '<span style="color:var(--accent)">_____</span>') : esc(q.q)}</div><small>Antwort laut sagen oder denken, dann umdrehen</small></div>
-    <div class="face back"><div class="a">${q.type === 'cloze' ? `<p class="big-answer">${esc(q.answers[0])}</p>` : `<p>${esc(q.answer)}</p>`}${q.explain ? `<p class="muted" style="margin-top:10px">${esc(q.explain)}</p>` : ''}</div></div></div></button>
+  ${q ? `<div class="flash-wrap"><button class="flash ${K.flipped ? 'flipped' : ''}" id="flash"><div class="flash-inner">
+    <div class="face front" ${K.flipped ? 'aria-hidden="true"' : ''}><small>${esc(chName(CHBY[q.ch]))}</small><div class="q">${q.type === 'cloze' ? esc(q.q).replace('___', '<span style="color:var(--accent)">_____</span>') : esc(q.q)}</div><small>Antwort laut sagen oder denken, dann umdrehen</small></div>
+    <div class="face back" ${K.flipped ? '' : 'aria-hidden="true"'}><div class="a">${q.type === 'cloze' ? `<p class="big-answer">${esc(q.answers[0])}</p>` : `<p>${esc(q.answer)}</p>`}${q.explain ? `<p class="muted" style="margin-top:10px">${esc(q.explain)}</p>` : ''}</div></div></div></button>
     <div class="rate" id="rate" ${K.flipped ? '' : 'hidden'}><button class="btn" data-r="0">Nochmal<small>gleich wieder</small></button><button class="btn" data-r="1">Schwer<small>bald</small></button><button class="btn" data-r="2">Gut<small>in ein paar Tagen</small></button><button class="btn" data-r="3">Leicht<small>viel später</small></button></div><p class="muted swipe-hint" ${K.flipped ? '' : 'hidden'}>Oder wischen: ← Nochmal, Gut →</p></div>`
     : `<div class="panel" style="text-align:center;display:grid;gap:12px;justify-items:center"><h3>Runde geschafft</h3><p class="muted">Gerade ist nichts mehr fällig.</p><button class="btn primary" id="knew">Neue Runde</button></div>`}`;
   el.onclick = e => {
@@ -355,7 +356,7 @@ function swipe(f) {
   f.onpointermove = e => { if (x0 == null) return; dx = e.clientX - x0; if (motionOK()) f.style.transform = `translateX(${dx}px) rotate(${dx / 40}deg)`; };
   f.onpointerup = f.onpointercancel = f.onpointerleave = () => { if (x0 == null) return; x0 = null; f.classList.remove('drag'); f.style.transform = ''; if (Math.abs(dx) > 70) { K.swipeT = Date.now(); rateCard(dx < 0 ? 0 : 2); } };
 }
-function flip() { if (current !== 'karten' || !K.list || !K.list.length) return; K.flipped = !K.flipped; $('#flash').classList.toggle('flipped', K.flipped); $('#rate').hidden = !K.flipped; const h = $('.swipe-hint'); if (h) h.hidden = !K.flipped; }
+function flip() { if (current !== 'karten' || !K.list || !K.list.length) return; K.flipped = !K.flipped; $('#flash').classList.toggle('flipped', K.flipped); $('#flash .front').setAttribute('aria-hidden', K.flipped); $('#flash .back').setAttribute('aria-hidden', !K.flipped); $('#rate').hidden = !K.flipped; const h = $('.swipe-hint'); if (h) h.hidden = !K.flipped; }
 function rateCard(r) { const id = K.list.shift(); record(id, [0, .5, 1, 1][r], r === 3); if (r === 0) K.list.splice(Math.min(3, K.list.length), 0, id); K.flipped = false; RENDER.karten($('#v-karten')); }
 
 /* ---------- Üben (freies Quiz und Test) ---------- */
@@ -404,8 +405,8 @@ function renderQ(box) {
   if (!R.state || R.state.id !== id || R.state.pos !== R.i) R.state = { id, pos: R.i, done: false, mcOrder: shuffle([0, 1, 2, 3]), seq: [], pool: q.type === 'order' ? shuffleNot(q.items.map((_, i) => i)) : null, right: q.type === 'match' ? shuffle(q.pairs.map((_, i) => i)) : null, pairs: {}, selL: null, txt: '', left: R.time, pend: null };
   const st = R.state, test = R.mode === 'test';
   box.innerHTML = `
-  <div class="qtop">${R.el === 'quiz' ? '<button class="btn sm ghost" id="quit">Beenden</button>' : ''}<div class="bar"><i style="width:${R.i / R.list.length * 100}%"></i></div><span class="num muted">${Math.min(R.i + 1, R.list.length)} / ${R.list.length}</span>${R.time ? `<span class="timer" id="timer">${st.left} s</span>` : ''}</div>
-  <div class="qcard"><div class="qmeta"><span class="tag">${TYPES[q.type]}</span><span>${esc(chName(c))}${sec ? ', ' + esc(sec.title) : ''}</span>${R.rep[id] ? '<span class="tag rep">Nochmal</span>' : ''}${R.mode === 'pre' ? '' : `<button class="btn sm ghost markbtn" id="mark" aria-pressed="${!!S.mark[id]}">${S.mark[id] ? 'Gemerkt' : 'Merken'}</button>`}</div>
+  <div class="qtop">${R.el === 'quiz' ? '<button class="btn sm ghost" id="quit">Beenden</button>' : ''}<div class="bar"><i style="width:${R.i / R.list.length * 100}%"></i></div><span class="num muted">${Math.min(R.i + 1, R.list.length)} / ${R.list.length}</span>${R.time ? `<span class="timer" id="timer">${st.left} s</span>` : ''}${R.mode === 'pre' ? '' : `<button class="btn sm ghost markbtn" id="mark" aria-pressed="${!!S.mark[id]}">${S.mark[id] ? 'Gemerkt' : 'Merken'}</button>`}</div>
+  <div class="qcard"><div class="qmeta"><span class="tag">${TYPES[q.type]}</span><span>${esc(chName(c))}${sec ? ', ' + esc(sec.title) : ''}</span>${R.rep[id] ? '<span class="tag rep">Nochmal</span>' : ''}</div>
     ${q.type === 'cloze' ? '' : `<div class="qtext">${esc(q.q)}</div>`}${q.fig ? figHTML(q.fig, q.mark) : ''}<div id="qbody"></div><div id="fb"></div><div class="qactions" id="qact"></div></div>`;
   const body = $('#qbody', box), act = $('#qact', box), key = (i, t) => `<span class="k">${i}</span><span>${esc(t)}</span>`;
   if (q.type === 'mc') body.innerHTML = `<div class="opts">${st.mcOrder.map((o, i) => `<button class="opt" data-o="${o}">${key(i + 1, q.options[o])}</button>`).join('')}</div>`;
@@ -439,7 +440,7 @@ function renderQ(box) {
 function choose(box, q, b, ok, right, given, sure) {
   const st = R.state, test = R.mode === 'test';
   box.querySelectorAll('.opts .opt, .tf .opt').forEach(o => o.disabled = true);
-  if (sure === undefined && G.opt.conf && R.mode !== 'pre') { b.classList.add('sel'); st.pend = { b, ok, right, given }; $('#qact', box).innerHTML = `<span class="muted">Wie sicher bist du?</span><div class="row"><button class="btn" data-conf="0">Geraten</button><button class="btn primary" data-conf="1">Sicher</button></div>`; return; }
+  if (sure === undefined && G.opt.conf && R.mode !== 'pre') { clearInterval(timerId); b.classList.add('sel'); st.pend = { b, ok, right, given }; $('#qact', box).innerHTML = `<span class="muted">Wie sicher bist du?</span><div class="row"><button class="btn" data-conf="0">Geraten</button><button class="btn primary" data-conf="1">Sicher</button></div>`; return; }
   b.classList.remove('sel');
   if (test) b.classList.add('sel'); else { b.classList.add(ok ? 'ok' : 'no'); if (!ok) { b.classList.add('shake'); right().classList.add('ok'); } else b.classList.add('popin'); }
   st.sure = sure; finishQ(box, ok ? 1 : 0, given);
@@ -538,32 +539,33 @@ RENDER.optionen = el => {
     <div class="opt-row"><div><h3>Animationen</h3></div>${seg('motion', [[true, 'An'], [false, 'Aus']])}</div>
     <div class="opt-row"><div><h3>Schriftgröße</h3></div>${seg('big', [[false, 'Normal'], [true, 'Groß']])}</div>
     <div class="opt-row"><div><h3>Sicherheit abfragen</h3><p class="muted">Nach Multiple Choice und Richtig/Falsch fragst du dich: sicher oder geraten? Sichere Fehler kommen früher wieder.</p></div>${seg('conf', [[false, 'Aus'], [true, 'An']])}</div>
-    <div class="opt-row"><div><h3>Ziel-Behaltensrate</h3><p class="muted">Wie sicher du eine Frage beim nächsten Abruf noch weißt. Höher heißt öfter wiederholen. Empfohlen: 90 %.</p></div>${seg('ret', [[.8, '80 %'], [.85, '85 %'], [.9, '90 %'], [.95, '95 %']])}</div>
+    <div class="opt-row"><div><h3>Ziel-Behaltensrate</h3><p class="muted">Wie sicher du eine Frage beim nächsten Abruf noch weißt. Höher heißt öfter wiederholen. Empfohlen: 90&nbsp;%.</p></div>${seg('ret', [[.8, '80 %'], [.85, '85 %'], [.9, '90 %'], [.95, '95 %']])}</div>
     <div class="opt-row"><div><h3>Warum-Fragen</h3><p class="muted">Nach einer richtigen Antwort erklärst du in einem Satz, warum, und vergleichst mit der Musterlösung. Das festigt Verständnis.</p></div>${seg('why', [[true, 'An'], [false, 'Aus']])}</div>
     <div class="opt-row"><div><h3>Tagesziel</h3><p class="muted">Wie viele Fragen du dir pro Tag vornimmst, über alle Themen. Der Lernpfad zeigt, wie weit du bist.</p></div>${seg('goal', [[0, 'Aus'], [10, '10'], [20, '20'], [40, '40']])}</div>
     <div class="opt-row"><div><h3>Lektionslänge</h3><p class="muted">Abfragefragen pro Lektion. Kurz passt, wenn du wenig Zeit oder Konzentration hast; mehrere kurze Einheiten über den Tag behältst du besser als eine lange.</p></div>${seg('len', [[4, 'Kurz'], [6, 'Normal'], [10, 'Lang']])}</div>
     <div class="opt-row"><div><h3>Erklärvideos</h3><p class="muted">Im Lesen pro Kapitel ein Link zur YouTube-Suche. Fremde Videos sind nicht geprüft, im Zweifel gilt der Stoff hier.</p></div>${seg('vid', [[false, 'Aus'], [true, 'An']])}</div>
-    <div class="opt-row"><div><h3>Fortschritt sichern</h3><p class="muted">Dein Lernstand liegt nur in diesem Browser. Als Datei sichern und auf einem anderen Gerät laden.</p></div><div class="row"><button class="btn" id="exp">Sichern</button><label class="btn" for="imp">Laden</label><input type="file" id="imp" accept="application/json" hidden></div></div>
+    <div class="opt-row"><div><h3>Fortschritt sichern</h3><p class="muted">Dein Lernstand liegt nur in diesem Browser. Als Datei sichern und auf einem anderen Gerät laden.</p></div><div class="row"><button class="btn" id="exp">Sichern</button><button class="btn" id="impBtn">Laden</button><input type="file" id="imp" accept="application/json" hidden></div></div>
     <div class="opt-row"><div><h3>Alles zurücksetzen</h3><p class="muted">Löscht Fortschritt in allen Themen auf diesem Gerät.</p></div><div class="row" id="resetBox"><button class="btn" id="reset1">Zurücksetzen</button></div></div>
   </div>`;
   el.onclick = e => {
     const b = e.target.closest('button'); if (!b) return; const seg = b.closest('[data-key]');
     if (seg) { const k = seg.dataset.key, v = b.dataset.v; G.opt[k] = v === 'true' ? true : v === 'false' ? false : isNaN(+v) ? v : +v; saveG(); applyOpt(); RENDER.optionen(el); toast('Gespeichert'); }
+    if (b.id === 'impBtn') return $('#imp', el).click();
     if (b.id === 'exp') { const data = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('lernstudio:')) data[k] = localStorage.getItem(k); } const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' })); a.download = 'lernstudio-fortschritt-' + dayKey() + '.json'; a.click(); }
     if (b.id === 'reset1') $('#resetBox', el).innerHTML = `<button class="btn ghost" id="reset0">Abbrechen</button><button class="btn danger" id="reset2">Ja, alles löschen</button>`;
     if (b.id === 'reset0') RENDER.optionen(el);
     if (b.id === 'reset2') { Object.keys(localStorage).filter(k => k.startsWith('lernstudio:t:')).forEach(k => localStorage.removeItem(k)); G.days = {}; saveG(); if (T) S = { q: {}, done: {}, read: {}, exam: '', mark: {} }; toast('Zurückgesetzt'); RENDER.optionen(el); drawNav('optionen'); }
   };
-  $('#imp', el).onchange = async e => { try { const d = JSON.parse(await e.target.files[0].text()); Object.entries(d).forEach(([k, v]) => k.startsWith('lernstudio:') && localStorage.setItem(k, v)); toast('Fortschritt geladen'); setTimeout(() => location.reload(), 600); } catch (err) { toast('Die Datei ist keine Lernstudio-Sicherung.'); } };
+  $('#imp', el).onchange = async e => { try { const d = JSON.parse(await e.target.files[0].text()), ok = Object.entries(d).filter(([k, v]) => k.startsWith('lernstudio:') && typeof v === 'string' && (JSON.parse(v), true)); if (!ok.length) throw new Error('leer'); ok.forEach(([k, v]) => localStorage.setItem(k, v)); toast('Fortschritt geladen'); setTimeout(() => location.reload(), 600); } catch (err) { toast('Die Datei ist keine Lernstudio-Sicherung.'); } };
 };
 
 /* ---------- Tastatur ---------- */
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && !e.target.matches('input[type=search],input[type=date]')) { e.preventDefault(); return back(); }
+  if (e.key === 'Escape' && !e.target.matches('input[type=search],input[type=date]')) { e.preventDefault(); if (e.target.matches('input,textarea')) return e.target.blur(); return back(); } // im Eingabefeld: erst Feld verlassen, zweites Esc = zurück
   if (e.target.matches('input,textarea') && e.key !== 'Enter') return;
   if (current === 'karten') { if (e.key === ' ') { e.preventDefault(); flip(); } if (K.flipped && /^[1-4]$/.test(e.key)) rateCard(+e.key - 1); return; }
   if (!R || R.done) return; const box = $('#v-' + R.el); if (!box || box.hidden) return;
-  if (e.key === 'Enter') { if (e.target.matches('textarea')) return; const b = $('#next', box) || $('#check:not(:disabled)', box) || $('#show', box); if (b) { e.preventDefault(); b.click(); } return; }
+  if (e.key === 'Enter') { if (e.target.matches('textarea') || e.target.closest('button,a')) return; const b = $('#next', box) || $('#check:not(:disabled)', box) || $('#show', box); if (b) { e.preventDefault(); b.click(); } return; }
   if (/^[1-4]$/.test(e.key)) { const o = box.querySelectorAll('.opts .opt, .tf .opt')[+e.key - 1]; if (o && !o.disabled) o.click(); }
 });
 

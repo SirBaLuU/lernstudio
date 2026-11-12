@@ -79,6 +79,7 @@ async function answerCurrent(p, right = true) {
     await p.goBack(); await at(S + '/lektion/read', 'goBack Abfrage');
     await p.goForward(); await at(S + '/lektion/quiz', 'goForward');
     if ((await p.evaluate(() => R.i)) !== i) E('Lektionsfortschritt verloren');
+    if (await p.evaluate(() => document.activeElement.matches('input,textarea'))) { await p.keyboard.press('Escape'); await at(S + '/lektion/quiz', 'Esc im Eingabefeld bleibt'); }
     await p.keyboard.press('Escape'); await at(S + '/lektion/read', 'Esc Abfrage');
     await p.click('#crumbs #back'); await at(S + '/start', 'Knopf Lesen');
     // Übungsrunde: Zurück behält die Runde, Beenden fragt in der Seite, Ergebnis → Zurück
@@ -254,7 +255,6 @@ async function answerCurrent(p, right = true) {
     fs.writeFileSync(f, JSON.stringify(tpl)); const bad = run(f);
     if (bad.status !== 1 || !/4 verschiedene Optionen/.test(bad.stdout) || !/id doppelt/.test(bad.stdout) || !/genau ein ___/.test(bad.stdout)) errs.push('check_thema erkennt Fehler nicht: ' + bad.stdout);
   }
-  process.exitCode = errs.length ? 1 : 0; // für CI
   // FSRS: Referenzwerte (unabhängig in Python nach den FSRS-6-Formeln gerechnet), Altstand-Übernahme, Option (Aufgabe 4)
   {
     const p = await b.newPage(); p.on('pageerror', e => errs.push('fsrs ' + e.message));
@@ -307,6 +307,36 @@ async function answerCurrent(p, right = true) {
     await p.evaluate(() => { delete S.mark[Q[0].id]; saveS(); Object.assign(G.opt, { goal: 0, len: 6, vid: false }); saveG(); });
     await p.close();
   }
+  // Review-Fehler: Zeitlimit im Hintergrund, Enter auf Knöpfen, Suche mit Entities, Karteikarte für Screenreader, Sicherung prüfen
+  {
+    const p = await b.newPage(); p.on('pageerror', e => errs.push('review ' + e.message));
+    const bad = m => errs.push('Review-Fix: ' + m);
+    await p.goto(BASE + '#strahlentherapie/start'); await p.waitForTimeout(2000);
+    // Zeitlimit stoppt beim Verlassen
+    await p.evaluate(() => startSession({ ids: [Q.find(q => q.type === 'mc').id], mode: 'test', time: 2, title: 'T' })); await p.waitForTimeout(400);
+    await p.evaluate(() => go('strahlentherapie/lernen')); await p.waitForTimeout(3000);
+    const t = await p.evaluate(() => ({ view: location.hash, i: R.i, rec: Object.keys(R.first).length }));
+    if (t.view !== '#strahlentherapie/lernen' || t.rec !== 0) bad('Zeitlimit lief weiter ' + JSON.stringify(t));
+    // Suche: „amp“ darf keine Entity zerreißen
+    const hl = await p.evaluate(() => { const i = document.querySelector('#v-lernen input[type=search]'); i.value = 'amp'; i.dispatchEvent(new Event('input', { bubbles: true })); return new Promise(r => setTimeout(() => r(document.querySelector('#v-lernen .hits').innerHTML), 400)); });
+    if (/&amp;<mark>|&<mark>/.test(hl)) bad('Suche zerreißt Entities');
+    // Enter auf „Merken“ prüft die Antwort nicht
+    await p.evaluate(() => { endRun(); startSession({ ids: [Q.find(q => q.type === 'cloze').id], mode: 'ueben', title: 'T' }); }); await p.waitForTimeout(500);
+    await p.fill('#cz', 'xyz'); await p.focus('#mark'); await p.keyboard.press('Enter'); await p.waitForTimeout(200);
+    if (await p.evaluate(() => R.state.done)) bad('Enter auf Merken hat geprüft');
+    await p.evaluate(() => { const id = R.list[0]; delete S.mark[id]; saveS(); endRun(); });
+    // Karteikarte: verdeckte Seite für Screenreader aus
+    await p.evaluate(() => go('strahlentherapie/karten')); await p.waitForTimeout(800);
+    const a1 = await p.evaluate(() => [$('#flash').getAttribute('aria-label'), $('#flash .back').getAttribute('aria-hidden')]);
+    await p.evaluate(() => flip()); const a2 = await p.evaluate(() => [$('#flash .front').getAttribute('aria-hidden'), $('#flash .back').getAttribute('aria-hidden')]);
+    if (a1[0] !== null || a1[1] !== 'true' || a2[0] !== 'true' || a2[1] !== 'false') bad('Karteikarte aria ' + JSON.stringify([a1, a2]));
+    // Sicherung ohne Lernstudio-Daten wird abgelehnt
+    await p.evaluate(() => go('optionen')); await p.waitForTimeout(500);
+    await p.setInputFiles('#imp', { name: 'x.json', mimeType: 'application/json', buffer: Buffer.from('{"foo":"bar"}') }); await p.waitForTimeout(300);
+    if (!/keine Lernstudio-Sicherung/.test(await p.textContent('body'))) bad('leere Sicherung angenommen');
+    await p.close();
+  }
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'OK');
+  process.exitCode = errs.length ? 1 : 0; // für CI – erst nach allen Prüfungen
   await b.close();
 })();
