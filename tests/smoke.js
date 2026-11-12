@@ -167,6 +167,22 @@ async function answerCurrent(p, right = true) {
     if (r.einzeln || r.sofort || !r.gemischt || r.nachFehler || r.neu || !r.runMixed) errs.push('Meisterung ' + JSON.stringify(r));
     await p.close();
   }
+  // Warum-Prompt nach richtiger Antwort, Musterlösung erst nach Vergleichen (Aufgabe 6)
+  {
+    const p = await b.newPage(); p.on('pageerror', e => errs.push('warum ' + e.message));
+    await p.goto(BASE + '#strahlentherapie/start'); await p.waitForTimeout(3000);
+    const id = await p.evaluate(() => { const q = Q.find(q => q.type === 'mc' && q.explain && q.explain.length >= 40); startSession({ ids: [q.id, Q[5].id], mode: 'ueben', title: 'Test' }); return q.id; });
+    await p.waitForTimeout(400); await answerCurrent(p, true);
+    if (!(await p.isVisible('#why'))) errs.push('warum: kein Prompt');
+    if (await p.evaluate(id => document.querySelector('#v-quiz #fb').textContent.includes(QBY[id].explain), id)) errs.push('warum: Lösung zu früh sichtbar');
+    await p.fill('#why', 'Weil es so ist.'); await p.click('#whyShow'); await p.screenshot({ path: OUT + 'warum_1280.png' });
+    if (!(await p.evaluate(id => document.querySelector('#whyModel').textContent.includes(QBY[id].explain), id))) errs.push('warum: keine Musterlösung');
+    await p.click('#whyYes'); if ((await p.evaluate(() => R.i)) !== 1) errs.push('warum: nicht weiter');
+    await p.evaluate(() => { G.opt.why = false; startSession({ ids: [Q.find(q => q.type === 'mc' && q.explain && q.explain.length >= 40).id], mode: 'ueben' }); }); await p.waitForTimeout(400);
+    await answerCurrent(p, true); if (await p.isVisible('#why')) errs.push('warum: Option Aus wirkt nicht');
+    await p.evaluate(() => { G.opt.why = true; saveG(); });
+    await p.close();
+  }
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'OK');
   await b.close();
 })();

@@ -10,7 +10,7 @@
 3. [x] **Lighthouse ≥ 95** (erledigt 2026-11-12) in Leistung, Barrierefreiheit, Best Practices (Fonts mit `font-display`, Bildgrößen, Kontraste, Labels). Abnahme: Lighthouse-Bericht in `docs/`.
 4. [ ] **FSRS** (wartet: Samuel wählt A/B, s. STAND) statt fester Stufen (ts-fsrs per CDN mit fester Version, Lizenz prüfen), Ziel-Behaltensrate 90 % in Optionen (80–95 %); bestehende Stände übernehmen.
 5. [x] (erledigt 2026-11-12) **Gemeistert erst nach verzögertem, gemischtem Test** (Khan-Prinzip); falscher Test senkt die Stufe.
-6. **Warum-Prompts:** nach richtiger Antwort bei Verständnisfragen „Erkläre in einem Satz, warum“ + Musterlösung zur Selbstbewertung (Bisra 2018).
+6. [x] (erledigt 2026-11-12) **Warum-Prompts:** nach richtiger Antwort bei Verständnisfragen „Erkläre in einem Satz, warum“ + Musterlösung zur Selbstbewertung (Bisra 2018).
 7. **Fragen ohne Abschnitt zuordnen** (Chromatographie: MC, Lückentext, Reihenfolge, Zuordnen per Stichwort zur passenden Folie), damit Lektionen gemischte Fragetypen bekommen.
 8. **Testfehler am Folgetag** automatisch als kurze Runde anbieten (Butler et al. 2007).
 9. **Schemata/Bilder** zu Bragg-Peak, Röntgenröhre, LINAC, Gaschromatograph, HPLC als SVG mit Beschriftung im Bild + Bildfragen „Was ist markiert?“ (nur eigene Zeichnungen).

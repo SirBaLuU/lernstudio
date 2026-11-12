@@ -357,3 +357,6 @@ input[type=date]{border:1px solid var(--line);border-radius:12px;padding:8px 10p
 .swipe-hint{font-size:.85rem;text-align:center}
 @media (hover:hover) and (pointer:fine){.swipe-hint{display:none}}
 .path-ch{content-visibility:auto;contain-intrinsic-size:auto 600px} /* Kapitel außerhalb des Bildschirms erst bei Bedarf layouten */
+.why{display:grid;gap:8px}
+.why label{font-weight:700}
+.why textarea{min-height:64px}

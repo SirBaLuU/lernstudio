@@ -13,7 +13,7 @@ const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? 
 
 /* ---------- Zustand ---------- */
 const G = Object.assign({ days: {} }, store.get('lernstudio:g', {}));
-G.opt = Object.assign({ theme: 'system', motion: true, big: false, conf: false }, G.opt || {});
+G.opt = Object.assign({ theme: 'system', motion: true, big: false, conf: false, why: true }, G.opt || {});
 const saveG = () => store.set('lernstudio:g', G);
 let TOPICS = [], T = null, CH = [], Q = [], QBY = {}, SEC = {}, CHBY = {}, LESSONS = [], LBY = {}, S = null;
 const tkey = slug => 'lernstudio:t:' + slug;
@@ -393,7 +393,8 @@ function renderQ(box) {
     if (b.id === 'quit') return askQuit();
     if (b.id === 'quitNo') return $('#quitAsk').remove();
     if (b.id === 'quitYes') return endRun();
-    if (b.id === 'next') return nextQ();
+    if (b.id === 'next' || b.id === 'whyYes' || b.id === 'whyNo') return nextQ();
+    if (b.id === 'whyShow') { $('#why', box).readOnly = true; $('#whyModel', box).innerHTML = `<div class="feedback part"><h3>Musterlösung</h3><p>${esc(q.explain)}</p></div>`; act.innerHTML = `<span class="muted">Trifft deine Erklärung den Kern?</span><div class="row"><button class="btn" id="whyNo">Nicht ganz</button><button class="btn primary" id="whyYes">Ja</button></div>`; return $('#whyYes', box).focus({ preventScroll: true }); }
     if (b.dataset.look) { L.ch = q.ch; L.focus = q.sec; L.q = ''; return tgo('lernen'); }
     if (b.dataset.conf) { const p = st.pend; st.pend = null; return choose(box, q, p.b, p.ok, p.right, p.given, b.dataset.conf === '1'); }
     if (st.done && !b.dataset.self) return;
@@ -427,6 +428,13 @@ function finishQ(box, score, given, self) {
   if (st.sure && score < 1 && !pre) { S.q[id].hc = (S.q[id].hc || 0) + 1; saveS(); }
   if (!(id in R.first)) R.first[id] = { score, given };
   const fb = $('#fb', box), act = $('#qact', box);
+  // Warum-Prompt (Selbsterklärung, Bisra et al. 2018): nach richtiger Antwort erst selbst begründen, dann Musterlösung
+  const why = !test && !pre && score >= 1 && G.opt.why && (q.type === 'mc' || q.type === 'tf') && q.explain && q.explain.length >= 40 && !R.rep[id];
+  if (why) {
+    fb.innerHTML = `<div class="feedback ok"><h3>Richtig</h3></div><div class="why"><label for="why">Erkläre in einem Satz, warum.</label><textarea id="why" rows="2" placeholder="Weil …"></textarea><div id="whyModel"></div></div>`;
+    act.innerHTML = `<button class="btn ghost" id="next">Überspringen</button><button class="btn primary" id="whyShow">Vergleichen</button>`;
+    return setTimeout(() => { const t = $('#why', box); t && t.focus({ preventScroll: true }); }, 20);
+  }
   if (!test && !(q.type === 'open' && self)) {
     const cls = score >= 1 ? 'ok' : score > 0 ? 'part' : 'no';
     const title = pre ? (score >= 1 ? 'Gut geraten' : 'Gleich lernst du es') : score >= 1 ? 'Richtig' : score > 0 ? 'Teilweise richtig' : given === 'Zeit abgelaufen' ? 'Zeit abgelaufen' : st.sure ? 'Sicher, aber falsch. Genau das merkst du dir jetzt.' : 'Leider falsch';
@@ -500,6 +508,7 @@ RENDER.optionen = el => {
     <div class="opt-row"><div><h3>Animationen</h3></div>${seg('motion', [[true, 'An'], [false, 'Aus']])}</div>
     <div class="opt-row"><div><h3>Schriftgröße</h3></div>${seg('big', [[false, 'Normal'], [true, 'Groß']])}</div>
     <div class="opt-row"><div><h3>Sicherheit abfragen</h3><p class="muted">Nach Multiple Choice und Richtig/Falsch fragst du dich: sicher oder geraten? Sichere Fehler kommen früher wieder.</p></div>${seg('conf', [[false, 'Aus'], [true, 'An']])}</div>
+    <div class="opt-row"><div><h3>Warum-Fragen</h3><p class="muted">Nach einer richtigen Antwort erklärst du in einem Satz, warum, und vergleichst mit der Musterlösung. Das festigt Verständnis.</p></div>${seg('why', [[true, 'An'], [false, 'Aus']])}</div>
     <div class="opt-row"><div><h3>Fortschritt sichern</h3><p class="muted">Dein Lernstand liegt nur in diesem Browser. Als Datei sichern und auf einem anderen Gerät laden.</p></div><div class="row"><button class="btn" id="exp">Sichern</button><label class="btn" for="imp">Laden</label><input type="file" id="imp" accept="application/json" hidden></div></div>
     <div class="opt-row"><div><h3>Alles zurücksetzen</h3><p class="muted">Löscht Fortschritt in allen Themen auf diesem Gerät.</p></div><div class="row" id="resetBox"><button class="btn" id="reset1">Zurücksetzen</button></div></div>
   </div>`;
