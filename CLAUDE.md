@@ -5,7 +5,7 @@ Statische Lernseite (GitHub Pages) für Samuels HTL-Unterricht. Ziel: die beste 
 ## Aufbau
 - `index.html`, `app.css`, `app.js` (Vanilla JS, keine Build-Kette), `sw.js` (Offline-Cache), `themen/*.json` (Stoff + Fragen), `themen/index.json` (Liste).
 - Datenformat: siehe `README.md`. Fortschritt nur in `localStorage` (Schlüssel `lernstudio:*`).
-- Lernlogik: Lektion = Vortest (2) → Lesen → Abfrage (max. 6, bis richtig); Wiederholung nach Stufen 0/1/3/7/14/30 Tage, mit Testdatum gedeckelt auf 30 % der Restzeit.
+- Lernlogik: Lektion = Vortest (2) → Lesen → Abfrage (max. 6, bis richtig); Wiederholung nach FSRS-6 (`fsrs.js`, eigene Umsetzung, Ziel-Behaltensrate in Optionen; seit 2026-11-12 statt Stufen 0/1/3/7/14/30), mit Testdatum gedeckelt auf 30 % der Restzeit.
 
 ## Arbeitsweise
 - Selbsttest vor jedem Commit: `python -m http.server 8000` im Projektordner, dann `node tests/smoke.js` (Playwright). Abgenommen = Ausgabe `OK`, keine Konsolenfehler, kein seitliches Scrollen bei 390 px.

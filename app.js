@@ -6,14 +6,15 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const TYPES = { mc: 'Multiple Choice', tf: 'Richtig/Falsch', cloze: 'Lückentext', order: 'Reihenfolge', match: 'Zuordnen', open: 'Offene Frage' };
 const RECALL = { cloze: 0, open: 1, order: 2, match: 3, tf: 4, mc: 5 }; // Abruf vor Wiedererkennen
-const DAY = 864e5, STEP = [0, 1, 3, 7, 14, 30];
+const DAY = 864e5;
 const LEVEL = ['Neu', 'Versucht', 'Vertraut', 'Sicher', 'Gemeistert'];
 const dayKey = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } } };
 
 /* ---------- Zustand ---------- */
 const G = Object.assign({ days: {} }, store.get('lernstudio:g', {}));
-G.opt = Object.assign({ theme: 'system', motion: true, big: false, conf: false, why: true }, G.opt || {});
+G.opt = Object.assign({ theme: 'system', motion: true, big: false, conf: false, why: true, ret: .9 }, G.opt || {});
+G.opt.ret = Math.min(.95, Math.max(.8, +G.opt.ret || .9)); // Ziel-Behaltensrate, auch nach Laden einer Sicherung im gültigen Bereich
 const saveG = () => store.set('lernstudio:g', G);
 let TOPICS = [], T = null, CH = [], Q = [], QBY = {}, SEC = {}, CHBY = {}, LESSONS = [], LBY = {}, S = null;
 const tkey = slug => 'lernstudio:t:' + slug;
@@ -39,15 +40,24 @@ const chTitle = c => c.label ? c.title.replace(c.label, '').replace(/^[\s–-]+/
 
 /* ---------- Lernlogik ---------- */
 function daysToExam() { if (!S || !S.exam) return null; const d = Math.ceil((new Date(S.exam + 'T00:00') - new Date(dayKey() + 'T00:00')) / DAY); return d; }
-function interval(b) { let d = STEP[b]; const left = daysToExam(); if (left != null && left > 0) d = Math.min(d, Math.max(1, Math.round(left * .3))); return d; } // Abstand ≈ 30 % der Restzeit (Cepeda 2008)
+// Mit Testdatum: nächster Abruf spätestens nach ≈ 30 % der Restzeit (Cepeda 2008)
+function examCap(due) { const left = daysToExam(); return left != null && left > 0 ? Math.min(due, Date.now() + Math.max(1, Math.round(left * .3)) * DAY) : due; }
+// Gedächtnisdaten für FSRS; alte Stände (feste Stufen 0–5 = 0/1/3/7/14/30 Tage) werden beim nächsten Abruf übernommen
+const LEGACY_DAYS = [0, 1, 3, 7, 14, 30];
+function memory(st) {
+  if (st.s) return { s: st.s, d: st.d, last: st.t };
+  if (!st.t) return null;
+  return { s: Math.max(LEGACY_DAYS[st.b || 0], FSRS.W[0]), d: FSRS.initDifficulty(st.w > st.c ? 2 : 3), last: st.t };
+}
 // Gemeistert nur nach verzögerter (≥ 20 h nach der letzten richtigen Antwort), gemischter Abfrage; Fehler nimmt es wieder weg (Khan-Prinzip)
 function record(id, score, bonus, mixed) {
-  const st = S.q[id] || (S.q[id] = { c: 0, w: 0, b: 0 });
+  const st = S.q[id] || (S.q[id] = { c: 0, w: 0 });
   const delayed = st.ok && st.t && Date.now() - st.t >= 20 * 36e5;
   if (score < 1) st.m = false; else if (mixed && delayed) st.m = true;
-  st.c += score; st.w += 1 - score; st.ok = score >= 1; st.t = Date.now();
-  st.b = score >= 1 ? Math.min(5, st.b + 1 + (bonus ? 1 : 0)) : score > 0 ? Math.max(1, st.b - 1) : 0;
-  st.due = Date.now() + interval(st.b) * DAY;
+  const g = score >= 1 ? (bonus ? 4 : 3) : score > 0 ? 2 : 1; // FSRS-Bewertung: Nochmal/Schwer/Gut/Leicht
+  const mem = FSRS.review(memory(st), g, Date.now(), G.opt.ret);
+  st.c += score; st.w += 1 - score; st.ok = score >= 1; st.t = mem.last; st.s = mem.s; st.d = mem.d; st.due = examCap(mem.due);
+  delete st.b; // feste Stufe durch FSRS ersetzt
   G.days[dayKey()] = (G.days[dayKey()] || 0) + 1; saveS(); saveG();
 }
 const mastered = id => { const s = S.q[id]; return !!(s && s.m); };
@@ -520,13 +530,14 @@ RENDER.optionen = el => {
     <div class="opt-row"><div><h3>Animationen</h3></div>${seg('motion', [[true, 'An'], [false, 'Aus']])}</div>
     <div class="opt-row"><div><h3>Schriftgröße</h3></div>${seg('big', [[false, 'Normal'], [true, 'Groß']])}</div>
     <div class="opt-row"><div><h3>Sicherheit abfragen</h3><p class="muted">Nach Multiple Choice und Richtig/Falsch fragst du dich: sicher oder geraten? Sichere Fehler kommen früher wieder.</p></div>${seg('conf', [[false, 'Aus'], [true, 'An']])}</div>
+    <div class="opt-row"><div><h3>Ziel-Behaltensrate</h3><p class="muted">Wie sicher du eine Frage beim nächsten Abruf noch weißt. Höher heißt öfter wiederholen. Empfohlen: 90 %.</p></div>${seg('ret', [[.8, '80 %'], [.85, '85 %'], [.9, '90 %'], [.95, '95 %']])}</div>
     <div class="opt-row"><div><h3>Warum-Fragen</h3><p class="muted">Nach einer richtigen Antwort erklärst du in einem Satz, warum, und vergleichst mit der Musterlösung. Das festigt Verständnis.</p></div>${seg('why', [[true, 'An'], [false, 'Aus']])}</div>
     <div class="opt-row"><div><h3>Fortschritt sichern</h3><p class="muted">Dein Lernstand liegt nur in diesem Browser. Als Datei sichern und auf einem anderen Gerät laden.</p></div><div class="row"><button class="btn" id="exp">Sichern</button><label class="btn" for="imp">Laden</label><input type="file" id="imp" accept="application/json" hidden></div></div>
     <div class="opt-row"><div><h3>Alles zurücksetzen</h3><p class="muted">Löscht Fortschritt in allen Themen auf diesem Gerät.</p></div><div class="row" id="resetBox"><button class="btn" id="reset1">Zurücksetzen</button></div></div>
   </div>`;
   el.onclick = e => {
     const b = e.target.closest('button'); if (!b) return; const seg = b.closest('[data-key]');
-    if (seg) { const k = seg.dataset.key, v = b.dataset.v; G.opt[k] = v === 'true' ? true : v === 'false' ? false : v; saveG(); applyOpt(); RENDER.optionen(el); toast('Gespeichert'); }
+    if (seg) { const k = seg.dataset.key, v = b.dataset.v; G.opt[k] = v === 'true' ? true : v === 'false' ? false : isNaN(+v) ? v : +v; saveG(); applyOpt(); RENDER.optionen(el); toast('Gespeichert'); }
     if (b.id === 'exp') { const data = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('lernstudio:')) data[k] = localStorage.getItem(k); } const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' })); a.download = 'lernstudio-fortschritt-' + dayKey() + '.json'; a.click(); }
     if (b.id === 'reset1') $('#resetBox', el).innerHTML = `<button class="btn ghost" id="reset0">Abbrechen</button><button class="btn danger" id="reset2">Ja, alles löschen</button>`;
     if (b.id === 'reset0') RENDER.optionen(el);

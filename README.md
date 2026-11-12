@@ -26,7 +26,8 @@ Ausführliche Anleitung mit Vorlage: `tools/neues_thema.md`. Prüfen: `python to
 
 ## Lernprinzipien (Quellen)
 - Abfragen statt Wiederlesen: Roediger & Karpicke 2006
-- Verteilte Wiederholung, Abstand ≈ 30 % der Restzeit bis zum Test: Cepeda et al. 2008
+- Wiederholungsplan nach FSRS-6 (eigene Umsetzung in `fsrs.js`, Ziel-Behaltensrate einstellbar): open-spaced-repetition
+- Verteilte Wiederholung, Abstand höchstens ≈ 30 % der Restzeit bis zum Test: Cepeda et al. 2008
 - Bis zum Kriterium wiederholen: Rawson & Dunlosky (Successive Relearning)
 - Vortest vor dem Lesen: Richland, Kornell & Kao 2009
 - Sicherheitsabfrage (Hyperkorrektur): Butterfield & Metcalfe 2001

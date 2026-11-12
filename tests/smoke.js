@@ -255,6 +255,35 @@ async function answerCurrent(p, right = true) {
     if (bad.status !== 1 || !/4 verschiedene Optionen/.test(bad.stdout) || !/id doppelt/.test(bad.stdout) || !/genau ein ___/.test(bad.stdout)) errs.push('check_thema erkennt Fehler nicht: ' + bad.stdout);
   }
   process.exitCode = errs.length ? 1 : 0; // für CI
+  // FSRS: Referenzwerte (unabhängig in Python nach den FSRS-6-Formeln gerechnet), Altstand-Übernahme, Option (Aufgabe 4)
+  {
+    const p = await b.newPage(); p.on('pageerror', e => errs.push('fsrs ' + e.message));
+    await p.goto(BASE + '#strahlentherapie/start'); await p.waitForTimeout(3000);
+    const r = await p.evaluate(() => {
+      const T0 = new Date(2026, 10, 12, 10).getTime(), D = 864e5, o = {};
+      const a = FSRS.review(null, 3, T0, .9); o.neu = [a.s, a.d, (a.due - T0) / D];
+      const b2 = FSRS.review(a, 3, T0 + 2 * D, .9); o.gut2 = [b2.s, b2.d, (b2.due - b2.last) / D];
+      o.ret = [.8, .95].map(x => (FSRS.review(a, 3, T0 + 2 * D, x).due - T0 - 2 * D) / D);
+      const c = FSRS.review(b2, 1, T0 + 12 * D, .9); o.falsch = [c.s, c.d, c.due - c.last];
+      o.r90 = FSRS.retrievability(7, 7);
+      // Altstand: Stufe 3 (7 Tage) wird übernommen, b verschwindet, s/d gesetzt
+      const id = Q[0].id; S.q[id] = { c: 2, w: 0, b: 3, ok: true, t: Date.now() - 7 * D, due: Date.now() };
+      record(id, 1, false, false); const st = S.q[id]; o.alt = { b: 'b' in st, s: st.s, d: st.d, tage: (st.due - st.t) / D };
+      delete S.q[id]; saveS(); return o;
+    });
+    const near = (x, y) => Math.abs(x - y) < 1e-3, bad = m => errs.push('fsrs ' + m + ' ' + JSON.stringify(r));
+    if (!near(r.neu[0], 2.3065) || !near(r.neu[1], 2.1181) || r.neu[2] !== 2) bad('neu');
+    if (!near(r.gut2[0], 10.9643) || !near(r.gut2[1], 2.1112) || r.gut2[2] !== 11) bad('gut nach 2 Tagen');
+    if (r.ret[0] !== 36 || r.ret[1] !== 4) bad('Behaltensrate');
+    if (!near(r.falsch[0], 1.5221) || !near(r.falsch[1], 7.3922) || r.falsch[2] !== 0) bad('falsch');
+    if (!near(r.r90, .9)) bad('r(s,s) = 0,9');
+    if (r.alt.b || !(r.alt.s > 7) || !(r.alt.tage >= 7)) bad('Altstand');
+    await p.evaluate(() => go('optionen')); await p.waitForTimeout(400);
+    await p.click('[data-key="ret"] [data-v="0.85"]'); await p.waitForTimeout(200);
+    if ((await p.evaluate(() => G.opt.ret)) !== .85 || (await p.getAttribute('[data-key="ret"] [data-v="0.85"]', 'aria-pressed')) !== 'true') bad('Option');
+    await p.click('[data-key="ret"] [data-v="0.9"]');
+    await p.close();
+  }
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'OK');
   await b.close();
 })();
