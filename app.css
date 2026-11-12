@@ -356,7 +356,7 @@ input[type=date]{border:1px solid var(--line);border-radius:12px;padding:8px 10p
 .flash{touch-action:pan-y}
 .swipe-hint{font-size:.85rem;text-align:center}
 @media (hover:hover) and (pointer:fine){.swipe-hint{display:none}}
-.path-ch{content-visibility:auto;contain-intrinsic-size:auto 600px} /* Kapitel außerhalb des Bildschirms erst bei Bedarf layouten */
+.path-ch{content-visibility:auto;contain-intrinsic-block-size:auto 600px;min-width:0} /* Kapitel außerhalb des Bildschirms erst bei Bedarf layouten */
 .why{display:grid;gap:8px}
 .why label{font-weight:700}
 .why textarea{min-height:64px}
@@ -389,3 +389,4 @@ input[type=date]{border:1px solid var(--line);border-radius:12px;padding:8px 10p
 .fig .qmark circle{fill:var(--dose)}
 .fig .qmark text{fill:#fff;font-weight:800;font-size:18px;font-family:var(--display)}
 @media (max-width:620px){.figure{overflow-x:auto}.fig{min-width:540px}.fig.quiz{min-width:0}} /* Beschriftung bleibt lesbar, Bild scrollt seitlich */
+.recap{display:grid;gap:6px;padding:16px 20px}

@@ -106,9 +106,10 @@ async function answerCurrent(p, right = true) {
         return r.height < 44 - .5;
       }).map(e => (e.id || e.className || e.tagName) + ' ' + Math.round(e.getBoundingClientRect().height) + 'px'));
       if (small.length) E(`${name}: zu klein ${[...new Set(small)].slice(0, 5).join(', ')}`);
-      await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await p.waitForTimeout(200);
+      for (let k = 0, h0 = -1, h; k < 8 && (h = await p.evaluate(() => document.documentElement.scrollHeight)) !== h0; k++, h0 = h) { await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await p.waitForTimeout(250); } // bis die Höhe stabil ist
       const cover = await p.evaluate(() => { const bar = document.querySelector('#tabsMob'); if (bar.hidden) return 0; const top = bar.getBoundingClientRect().top; const v = document.querySelector('.view:not([hidden])'); const kids = [...v.querySelectorAll('*')].filter(e => e.getBoundingClientRect().height && !e.closest('[hidden]')); return Math.max(0, ...kids.map(e => e.getBoundingClientRect().bottom)) - top; });
       if (cover > 0) E(`${name}: ${Math.round(cover)} px unter der Leiste`);
+      const wide = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth); if (wide > 0) E(`${name}: ${wide} px zu breit`);
       await p.screenshot({ path: OUT + `m_${name}_390.png` });
     };
     for (const v of ['start', 'lernen', 'karten', 'quiz', 'statistik']) { await p.evaluate(h => go(h), S + '/' + v); await p.waitForTimeout(700); await check(v); }
@@ -220,6 +221,23 @@ async function answerCurrent(p, right = true) {
     if (!q || !q.mark || !q.hidden || q.over > 0) errs.push('bildfrage ' + JSON.stringify(q));
     await answerCurrent(p, true); if (!(await p.evaluate(() => S.q['fig-hplc-pumpe'] && S.q['fig-hplc-pumpe'].ok))) errs.push('bildfrage nicht gewertet');
     await p.screenshot({ path: OUT + 'bildfrage_390.png' });
+    await p.close();
+  }
+  // Serien-Pause (1 Tag pro Woche) und Tagesrückblick (Aufgabe 10)
+  {
+    const p = await b.newPage(); p.on('pageerror', e => errs.push('serie ' + e.message));
+    await p.goto(BASE + '#strahlentherapie/start'); await p.waitForTimeout(3000);
+    const r = await p.evaluate(() => {
+      const keep = G.days, set = offs => { G.days = {}; offs.forEach(o => { const d = new Date(); d.setDate(d.getDate() - o); G.days[dayKey(d)] = 3; }); return streak(); };
+      const o = { durch: set([0, 1, 2, 3]), pause: set([0, 1, 3, 4]), zweiPausen: set([0, 2, 4]), pauseNachWoche: set([0, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12]), gestern: set([1, 2]), alt: set([2, 3]) };
+      G.days = keep;
+      const id = Q[0].id; S.q[id] = { c: 1, w: 0, b: 1, ok: true, t: Date.now() }; RENDER.start(document.querySelector('#v-start'));
+      o.recap = (document.querySelector('#recap') || {}).textContent || ''; delete S.q[id]; saveS(); return o;
+    });
+    // Erwartung: 4; 4 (Tag 2 Pause); 2 (zweite Lücke in 7 Tagen bricht); 11 (Pausen an Tag 1 und 10, 9 Tage Abstand); 2; 0
+    const want = { durch: 4, pause: 4, zweiPausen: 2, pauseNachWoche: 11, gestern: 2, alt: 0 };
+    for (const k in want) if (r[k] !== want[k]) errs.push(`serie ${k}: ${r[k]} statt ${want[k]}`);
+    if (!/Heute gelernt\s*1 Frage abgerufen, 1 davon zuletzt richtig/.test(r.recap)) errs.push('rückblick: ' + r.recap);
     await p.close();
   }
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'OK');

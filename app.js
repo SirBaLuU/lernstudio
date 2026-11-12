@@ -59,7 +59,11 @@ function lessonLevel(l) {
   if (ans.length === sts.length && ans.every(s => s.ok)) return ans.every(s => s.m) ? 4 : 3;
   return acc >= .7 ? 2 : 1;
 }
-function streak() { let n = 0; const d = new Date(); if (!G.days[dayKey(d)]) d.setDate(d.getDate() - 1); while (G.days[dayKey(d)]) { n++; d.setDate(d.getDate() - 1); } return n; }
+// Serie mit Pausentag: ein Tag ohne Lernen pro 7 Tage bricht die Serie nicht (zählt aber nicht mit)
+function streak() { let n = 0, pause = -99; const d = new Date(); if (!G.days[dayKey(d)]) d.setDate(d.getDate() - 1);
+  for (let i = 0; ; i++, d.setDate(d.getDate() - 1)) { if (G.days[dayKey(d)]) n++; else if (n > 0 && i - pause >= 7) pause = i; else break; } return n; }
+// Tagesrückblick: heute beantwortete Fragen dieses Themas
+function today() { const t0 = new Date(dayKey() + 'T00:00').getTime(), qs = Q.filter(q => S.q[q.id] && S.q[q.id].t >= t0).map(q => S.q[q.id]); return { n: qs.length, ok: qs.filter(s => s.ok).length, m: qs.filter(s => s.m).length }; }
 function dueIds() { return Q.filter(q => isDue(q.id)).sort((a, b) => S.q[a.id].due - S.q[b.id].due).map(q => q.id); }
 function nextAction() {
   const due = dueIds(); const next = LESSONS.find(l => !S.done[l.id]);
@@ -104,7 +108,7 @@ function drawNav(view) {
   $('#tabs').innerHTML = html; $('#tabsMob').innerHTML = html; $('#tabsMob').hidden = !T;
   const p = $('#topicPill'); p.hidden = !T; if (T) { p.href = '#home'; p.title = 'Zur Bibliothek'; p.querySelector('span').textContent = T.title; }
   $('#optLink').toggleAttribute('aria-current', view === 'optionen');
-  const n = streak(); $('#streakPill').textContent = n + (n === 1 ? ' Tag' : ' Tage') + ' Serie';
+  const n = streak(); $('#streakPill').textContent = n + (n === 1 ? ' Tag' : ' Tage') + ' Serie'; $('#streakPill').title = 'Lernserie in Tagen. Ein Tag Pause pro Woche bricht sie nicht.';
 }
 
 /* ---------- Navigation ---------- */
@@ -216,6 +220,7 @@ RENDER.start = el => {
     <div class="panel stat"><small>Lektionen geschafft</small><b class="num"><span data-count="${LESSONS.length - open}">0</span><span class="muted" style="font-size:1.1rem"> / ${LESSONS.length}</span></b><div class="bar"><i style="--w:${(LESSONS.length - open) / LESSONS.length * 100}%"></i></div></div>
     <div class="panel stat"><small>Test am</small><input type="date" id="exam" value="${esc(S.exam)}" aria-label="Datum des Tests"><small>${left == null ? 'Datum setzen: Wiederholungen werden danach geplant.' : left > 0 ? `Noch ${left} ${left === 1 ? 'Tag' : 'Tage'}.` : left === 0 ? 'Heute ist Test. Viel Erfolg!' : 'Test ist vorbei.'}</small></div>
   </div>
+  ${(() => { const h = today(); return h.n ? `<div class="panel recap" id="recap"><h3>Heute gelernt</h3><p><strong class="num">${h.n}</strong> ${h.n === 1 ? 'Frage' : 'Fragen'} abgerufen, <strong class="num">${h.ok}</strong> davon zuletzt richtig${h.m ? `, <strong class="num">${h.m}</strong> gemeistert` : ''}. ${h.ok < h.n ? 'Was heute falsch war, kommt bald wieder.' : 'Stark – morgen kurz wiederholen, dann sitzt es.'}</p></div>` : ''; })()}
   <div class="section-head"><h2>Lernpfad</h2><span class="muted">Jede Lektion: 2 Vortestfragen, kurz lesen, dann abfragen, bis alles sitzt.</span></div>
   <div class="path">${CH.map(c => `
     <section class="path-ch"><h3><span class="badge">${esc(c.badge || c.nr)}</span>${esc(chTitle(c))}</h3>
