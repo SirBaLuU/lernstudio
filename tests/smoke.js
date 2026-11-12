@@ -93,6 +93,38 @@ async function answerCurrent(p, right = true) {
     await p.click('#crumbs #back'); await at(S + '/quiz', 'Zurück Ergebnis'); await p.goBack(); await at(S + '/start', 'zum Lernpfad');
     await p.close();
   }
+  // Handy 390 px: Ziele ≥ 44 px, nichts unter der unteren Leiste, Wischen auf Karteikarten (Aufgabe 2)
+  {
+    const p = await b.newPage({ viewport: { width: 390, height: 844 }, colorScheme: 'dark', hasTouch: true }); const E = m => errs.push('mobil ' + m);
+    p.on('pageerror', e => E(e.message));
+    const S = 'strahlentherapie';
+    await p.goto(BASE + '#' + S + '/start'); await p.waitForTimeout(3000);
+    const check = async name => {
+      const small = await p.evaluate(() => [...document.querySelectorAll('button,a,input,select,textarea,label.btn')].filter(e => {
+        const r = e.getBoundingClientRect(); if (!r.width || e.closest('[hidden]') || e.type === 'file') return false;
+        if (e.tagName === 'A' && !e.matches('.btn,.topic-pill,.icon-btn,.brand') && e.closest('p,li,.links,.principles,.crumbs li')) return false; // Links im Fließtext sind ausgenommen (WCAG 2.5.8)
+        return r.height < 44 - .5;
+      }).map(e => (e.id || e.className || e.tagName) + ' ' + Math.round(e.getBoundingClientRect().height) + 'px'));
+      if (small.length) E(`${name}: zu klein ${[...new Set(small)].slice(0, 5).join(', ')}`);
+      await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await p.waitForTimeout(200);
+      const cover = await p.evaluate(() => { const bar = document.querySelector('#tabsMob'); if (bar.hidden) return 0; const top = bar.getBoundingClientRect().top; const v = document.querySelector('.view:not([hidden])'); const kids = [...v.querySelectorAll('*')].filter(e => e.getBoundingClientRect().height && !e.closest('[hidden]')); return Math.max(0, ...kids.map(e => e.getBoundingClientRect().bottom)) - top; });
+      if (cover > 0) E(`${name}: ${Math.round(cover)} px unter der Leiste`);
+      await p.screenshot({ path: OUT + `m_${name}_390.png` });
+    };
+    for (const v of ['start', 'lernen', 'karten', 'quiz', 'statistik']) { await p.evaluate(h => go(h), S + '/' + v); await p.waitForTimeout(700); await check(v); }
+    await p.evaluate(() => go('optionen')); await p.waitForTimeout(500); await check('optionen');
+    await p.evaluate(() => go('home')); await p.waitForTimeout(500); await check('home');
+    await p.evaluate(h => go(h), S + '/start'); await p.waitForTimeout(500); await p.click('#goNext'); await p.waitForTimeout(300); await check('lektion');
+    await p.evaluate(h => go(h), S + '/quiz'); await p.waitForTimeout(400); await p.click('#go'); await p.waitForTimeout(400); await p.evaluate(() => window.scrollTo(0, 0)); await p.screenshot({ path: OUT + "m_runde_oben_390.png" }); await check('runde');
+    // Wischen: Karte umdrehen, nach links wischen = Nochmal
+    await p.evaluate(h => go(h), S + '/karten'); await p.waitForTimeout(600);
+    const id0 = await p.evaluate(() => K.list[0]); await p.click('#flash'); await p.waitForTimeout(700);
+    const bx = await p.locator('#flash').boundingBox(); const y = bx.y + bx.height / 2;
+    await p.mouse.move(bx.x + bx.width * .7, y); await p.mouse.down(); await p.mouse.move(bx.x + bx.width * .4, y, { steps: 6 }); await p.mouse.move(bx.x + bx.width * .2, y, { steps: 6 }); await p.mouse.up(); await p.waitForTimeout(500);
+    const after = await p.evaluate(id => ({ first: K.list[0], flipped: K.flipped, rated: !!S.q[id], again: K.list.includes(id) }), id0);
+    if (!after.rated || after.first === id0 || after.flipped || !after.again) E('Wischen links ' + JSON.stringify(after));
+    await p.close();
+  }
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'OK');
   await b.close();
 })();

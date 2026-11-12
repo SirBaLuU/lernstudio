@@ -164,7 +164,7 @@ mark{background:var(--dose-soft);color:inherit;border-radius:3px;padding:0 2px}
 .setup{display:grid;gap:22px}
 .qcard{background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:clamp(18px,4vw,34px);display:grid;gap:20px;box-shadow:var(--shadow);min-width:0}
 .qtop{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.qtop .bar{flex:1 1 200px}
+.qtop .bar{flex:1 1 120px}
 .qmeta{display:flex;gap:8px;flex-wrap:wrap;font-size:.84rem;color:var(--muted)}
 .tag{padding:3px 10px;border-radius:999px;background:var(--sunk);font-weight:700}
 .qtext{font-family:var(--display);font-weight:700;font-size:clamp(1.2rem,2.7vw,1.6rem);line-height:1.28}
@@ -332,3 +332,21 @@ input[type=date]{border:1px solid var(--line);border-radius:12px;padding:8px 10p
 @media (max-width:560px){.crumbs li[aria-current],.crumbs li:has([aria-current]){display:none}}
 .resume,.quit-ask{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 18px}
 .quit-ask{border-color:var(--accent);margin:10px 0}
+
+/* Handy: Daumen-Zone, Ziele ≥ 44 px, nichts unter der unteren Leiste */
+@media (max-width:820px){
+  main{padding-top:6px;padding-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
+  .btn,.chip,.seg button,.icon-btn,.topic-pill,.toc-select,.crumbs #back{min-height:44px}
+  .icon-btn{min-width:44px}
+  .brand{min-height:44px}
+  nav.tabs.mob a{min-width:56px;min-height:48px;justify-content:center}
+  .crumbs a{display:inline-flex;align-items:center;min-height:44px}
+  .seg button{min-width:44px}
+  /* Hauptknopf (Prüfen/Weiter) bleibt über der Leiste im Daumenbereich */
+  .qcard .qactions,.view>.qactions,.setup .qactions{position:sticky;bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:5;background:var(--surface);padding:10px 0;margin-bottom:-10px}
+  .view>.qactions{background:var(--bg)}
+}
+.flash.drag .flash-inner{transition:none}
+.flash{touch-action:pan-y}
+.swipe-hint{font-size:.85rem;text-align:center}
+@media (hover:hover) and (pointer:fine){.swipe-hint{display:none}}

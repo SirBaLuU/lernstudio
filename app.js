@@ -310,15 +310,23 @@ RENDER.karten = el => {
   ${q ? `<div class="flash-wrap"><button class="flash ${K.flipped ? 'flipped' : ''}" id="flash" aria-label="Karte umdrehen"><div class="flash-inner">
     <div class="face front"><small>${esc(chName(CHBY[q.ch]))}</small><div class="q">${q.type === 'cloze' ? esc(q.q).replace('___', '<span style="color:var(--accent)">_____</span>') : esc(q.q)}</div><small>Antwort laut sagen oder denken, dann umdrehen</small></div>
     <div class="face back"><div class="a">${q.type === 'cloze' ? `<p class="big-answer">${esc(q.answers[0])}</p>` : `<p>${esc(q.answer)}</p>`}${q.explain ? `<p class="muted" style="margin-top:10px">${esc(q.explain)}</p>` : ''}</div></div></div></button>
-    <div class="rate" id="rate" ${K.flipped ? '' : 'hidden'}><button class="btn" data-r="0">Nochmal<small>gleich wieder</small></button><button class="btn" data-r="1">Schwer<small>bald</small></button><button class="btn" data-r="2">Gut<small>in ein paar Tagen</small></button><button class="btn" data-r="3">Leicht<small>viel später</small></button></div></div>`
+    <div class="rate" id="rate" ${K.flipped ? '' : 'hidden'}><button class="btn" data-r="0">Nochmal<small>gleich wieder</small></button><button class="btn" data-r="1">Schwer<small>bald</small></button><button class="btn" data-r="2">Gut<small>in ein paar Tagen</small></button><button class="btn" data-r="3">Leicht<small>viel später</small></button></div><p class="muted swipe-hint" ${K.flipped ? '' : 'hidden'}>Oder wischen: ← Nochmal, Gut →</p></div>`
     : `<div class="panel" style="text-align:center;display:grid;gap:12px;justify-items:center"><h3>Runde geschafft</h3><p class="muted">Gerade ist nichts mehr fällig.</p><button class="btn primary" id="knew">Neue Runde</button></div>`}`;
   el.onclick = e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.c) { const c = b.dataset.c; K.chapters = K.chapters.includes(c) ? K.chapters.filter(x => x !== c) : K.chapters.concat(c); if (!K.chapters.length) K.chapters = [c]; K.list = null; K.flipped = false; RENDER.karten(el); }
-    if (b.id === 'flash') flip(); if (b.id === 'knew') { K.list = null; RENDER.karten(el); } if (b.dataset.r) rateCard(+b.dataset.r);
+    if (b.id === 'flash' && Date.now() - (K.swipeT || 0) > 400) flip(); if (b.id === 'knew') { K.list = null; RENDER.karten(el); } if (b.dataset.r) rateCard(+b.dataset.r);
   };
+  const f = $('#flash', el); if (f) swipe(f);
 };
-function flip() { if (current !== 'karten' || !K.list || !K.list.length) return; K.flipped = !K.flipped; $('#flash').classList.toggle('flipped', K.flipped); $('#rate').hidden = !K.flipped; }
+// Wischen auf der umgedrehten Karte: links = Nochmal, rechts = Gut
+function swipe(f) {
+  let x0 = null, dx = 0;
+  f.onpointerdown = e => { if (!K.flipped) return; x0 = e.clientX; dx = 0; f.classList.add('drag'); };
+  f.onpointermove = e => { if (x0 == null) return; dx = e.clientX - x0; if (motionOK()) f.style.transform = `translateX(${dx}px) rotate(${dx / 40}deg)`; };
+  f.onpointerup = f.onpointercancel = f.onpointerleave = () => { if (x0 == null) return; x0 = null; f.classList.remove('drag'); f.style.transform = ''; if (Math.abs(dx) > 70) { K.swipeT = Date.now(); rateCard(dx < 0 ? 0 : 2); } };
+}
+function flip() { if (current !== 'karten' || !K.list || !K.list.length) return; K.flipped = !K.flipped; $('#flash').classList.toggle('flipped', K.flipped); $('#rate').hidden = !K.flipped; const h = $('.swipe-hint'); if (h) h.hidden = !K.flipped; }
 function rateCard(r) { const id = K.list.shift(); record(id, [0, .5, 1, 1][r], r === 3); if (r === 0) K.list.splice(Math.min(3, K.list.length), 0, id); K.flipped = false; RENDER.karten($('#v-karten')); }
 
 /* ---------- Üben (freies Quiz und Test) ---------- */

@@ -1,5 +1,5 @@
 // Offline-Cache: App-Hülle sofort aus dem Cache, im Hintergrund aktualisieren
-const C = 'lernstudio-v2';
+const C = 'lernstudio-v3';
 const SHELL = ['./', 'index.html', 'app.css', 'app.js', 'icon.svg', 'themen/index.json'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(C).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== C).map(k => caches.delete(k))))); self.clients.claim(); });
