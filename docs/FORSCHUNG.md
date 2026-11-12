@@ -9,7 +9,7 @@
 | Hyperkorrektur / Konfidenz | Butterfield & Metcalfe 2001; https://pmc.ncbi.nlm.nih.gov/articles/PMC4036076 | Option „Sicherheit abfragen“ |
 | Interleaving nur bei ähnlichen Konzepten (g≈0.42, bei Fakten unklar) | Brunmair & Richter 2019 https://pubmed.ncbi.nlm.nih.gov/31556629/ | Gemischte Runde |
 | Self-Explanation mit Verständnis-Prompts (g≈.87) | Bisra et al. 2018, Educ. Psychol. Rev. 30, 703–725 https://doi.org/10.1007/s10648-018-9434-x | Warum-Prompt nach richtiger MC/RF-Antwort, Musterlösung erst danach (Option „Warum-Fragen“) |
-| Wort + Bild, Beschriftung im Bild (d 1.1–1.7) | Mayer, Multimedia-Prinzipien https://eddl.tru.ca/wp-content/uploads/2020/01/mayer-multimedia-instruction.pdf | offen |
+| Wort + Bild, Beschriftung im Bild (d 1.1–1.7) | Mayer, Multimedia-Prinzipien https://eddl.tru.ca/wp-content/uploads/2020/01/mayer-multimedia-instruction.pdf | 5 eigene Schemata (`figuren.js`) mit Beschriftung im Bild im Lesestoff; „Was ist markiert?“-Bildfragen in Lektionen |
 | FSRS sagt Behalten besser voraus als SM-2 | https://expertium.github.io/Benchmark.html ; Anki-Doku https://docs.ankiweb.net/deck-options.html | offen (ts-fsrs) |
 | Serien/Spiele: nur Bindung belegt, kein Lerneffekt | Duolingo-Blog | Serie ja, Punkte/Wetten nein |
 | Leistung im Training ≠ dauerhaftes Lernen; erst verzögerter Abruf zeigt Behalten | Soderstrom & Bjork 2015 https://doi.org/10.1177/1745691615569000 | „Gemeistert“ erst nach Abruf ≥ 20 h später |

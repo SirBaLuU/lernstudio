@@ -360,3 +360,32 @@ input[type=date]{border:1px solid var(--line);border-radius:12px;padding:8px 10p
 .why{display:grid;gap:8px}
 .why label{font-weight:700}
 .why textarea{min-height:64px}
+
+/* Schemazeichnungen und Bildfragen */
+.figure{margin:16px 0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 12px 8px}
+.qcard .figure{margin:0}
+.fig{width:100%;height:auto;display:block;color:var(--muted);font-family:var(--body)}
+.fig .lbl{font-size:13px;font-weight:700;fill:var(--ink)}
+.fig .lbl.sm{font-weight:400;fill:var(--muted)}
+.fig .ld{stroke:var(--muted);stroke-width:1;fill:none}
+.fig .ar{stroke:currentColor;stroke-width:2;fill:none}
+.fig .sh{stroke:var(--ink);stroke-width:1.6;fill:var(--surface)}
+.fig .sh.glass{fill:var(--sunk);stroke:var(--line);stroke-width:2}
+.fig .sh.thick{stroke-width:3;fill:none}
+.fig .sh.wire{fill:none;stroke:var(--muted);stroke-width:1.6}
+.fig .sh.fill,.fig .sh.tube{fill:var(--accent-soft);stroke:var(--accent)}
+.fig .sh.hot{fill:var(--dose);stroke:var(--dose)}
+.fig .sh.field{stroke:var(--dose);stroke-width:2.5}
+.fig .sh.tumor{fill:var(--dose-soft);stroke:none}
+.fig .sh.curve{fill:none;stroke:var(--muted);stroke-width:3}
+.fig .sh.curve.acc{stroke:var(--accent)}
+.fig .sh.dot{fill:var(--accent);stroke:none}
+.fig .ray{color:var(--dose)}
+.fig .axis{stroke:var(--line);stroke-width:1.5;fill:none}
+.fig.quiz .lbl,.fig.quiz .ld{display:none}
+.fig.quiz .axis+text,.fig.quiz .lbl.sm{display:inline}
+.fig .mark .sh{stroke:var(--dose);stroke-width:3.5}
+.fig .mark .sh.tumor{fill:color-mix(in srgb,var(--dose) 35%,transparent)}
+.fig .qmark circle{fill:var(--dose)}
+.fig .qmark text{fill:#fff;font-weight:800;font-size:18px;font-family:var(--display)}
+@media (max-width:620px){.figure{overflow-x:auto}.fig{min-width:540px}.fig.quiz{min-width:0}} /* Beschriftung bleibt lesbar, Bild scrollt seitlich */

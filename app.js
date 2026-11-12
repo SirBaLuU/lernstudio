@@ -23,11 +23,12 @@ async function loadIndex() { if (TOPICS.length) return; const r = await fetch('t
 async function loadTopic(slug) {
   const r = await fetch('themen/' + encodeURIComponent(slug) + '.json'); if (!r.ok) throw new Error('nicht gefunden');
   T = await r.json(); CH = T.chapters; Q = []; QBY = {}; SEC = {}; CHBY = {}; LESSONS = []; LBY = {};
-  CH.forEach(c => { CHBY[c.id] = c; c.sections.forEach(s => SEC[c.id + '|' + s.id] = s); c.questions.forEach(q => { Q.push(q); QBY[q.id] = q; }); });
+  const figQ = figQuestions(T.slug);
+  CH.forEach(c => { CHBY[c.id] = c; c.sections.forEach(s => SEC[c.id + '|' + s.id] = s); c.questions.concat(figQ.filter(q => q.ch === c.id)).forEach(q => { Q.push(q); QBY[q.id] = q; }); });
   // Lektionen: aufeinanderfolgende Abschnitte, bis genug Fragen für eine kurze Einheit beisammen sind
   CH.forEach(c => { let cur = null; c.sections.forEach((s, i) => {
     if (!cur) cur = { ch: c.id, secs: [], qs: [] };
-    cur.secs.push(s.id); cur.qs.push(...c.questions.filter(q => q.sec === s.id).map(q => q.id));
+    cur.secs.push(s.id); cur.qs.push(...Q.filter(q => q.ch === c.id && q.sec === s.id).map(q => q.id));
     if (cur.qs.length >= 5 || cur.secs.length >= 3 || i === c.sections.length - 1) { cur.id = c.id + '~' + LESSONS.filter(l => l.ch === c.id).length; cur.title = SEC[c.id + '|' + cur.secs[0]].title.replace(/^Folie \d+: /, ''); LESSONS.push(cur); LBY[cur.id] = cur; cur = null; }
   }); });
   S = Object.assign({ q: {}, done: {}, read: {}, exam: '' }, store.get(tkey(slug), {}));
@@ -248,7 +249,7 @@ function blockHTML(b) {
 const linksHTML = (links, label = 'Zum Nachlesen') => links && links.length ? `<div class="links"><strong>${label}</strong><ul>${links.map(x => `<li><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a> <span class="muted">${esc(x.src || '')}</span></li>`).join('')}</ul></div>` : '';
 function secHTML(chId, s, withRead = true) {
   const k = chId + '|' + s.id;
-  return `<article class="sec" id="s-${esc(s.id.replace(/\./g, '-'))}"><header><span class="id">${esc(/^[\d.]+$/.test(s.id) ? s.id : '')}</span><h3>${esc(s.title)}</h3>${withRead ? `<button class="btn sm read-toggle" aria-pressed="${!!S.read[k]}" data-readk="${esc(k)}">${S.read[k] ? 'Gelesen' : 'Als gelesen markieren'}</button>` : ''}</header>${s.blocks.map(blockHTML).join('')}${linksHTML(s.links)}</article>`;
+  return `<article class="sec" id="s-${esc(s.id.replace(/\./g, '-'))}"><header><span class="id">${esc(/^[\d.]+$/.test(s.id) ? s.id : '')}</span><h3>${esc(s.title)}</h3>${withRead ? `<button class="btn sm read-toggle" aria-pressed="${!!S.read[k]}" data-readk="${esc(k)}">${S.read[k] ? 'Gelesen' : 'Als gelesen markieren'}</button>` : ''}</header>${s.blocks.map(blockHTML).join('')}${Object.keys(FIG).filter(k => FIG[k].topic === T.slug && FIG[k].ch === chId && FIG[k].sec === s.id).map(k => figHTML(k)).join('')}${linksHTML(s.links)}</article>`;
 }
 RENDER.lektion = el => {
   const l = LBY[LS.id], c = CHBY[l.ch];
@@ -383,7 +384,7 @@ function renderQ(box) {
   box.innerHTML = `
   <div class="qtop">${R.el === 'quiz' ? '<button class="btn sm ghost" id="quit">Beenden</button>' : ''}<div class="bar"><i style="width:${R.i / R.list.length * 100}%"></i></div><span class="num muted">${Math.min(R.i + 1, R.list.length)} / ${R.list.length}</span>${R.time ? `<span class="timer" id="timer">${st.left} s</span>` : ''}</div>
   <div class="qcard"><div class="qmeta"><span class="tag">${TYPES[q.type]}</span><span>${esc(chName(c))}${sec ? ', ' + esc(sec.title) : ''}</span>${R.rep[id] ? '<span class="tag rep">Nochmal</span>' : ''}</div>
-    ${q.type === 'cloze' ? '' : `<div class="qtext">${esc(q.q)}</div>`}<div id="qbody"></div><div id="fb"></div><div class="qactions" id="qact"></div></div>`;
+    ${q.type === 'cloze' ? '' : `<div class="qtext">${esc(q.q)}</div>`}${q.fig ? figHTML(q.fig, q.mark) : ''}<div id="qbody"></div><div id="fb"></div><div class="qactions" id="qact"></div></div>`;
   const body = $('#qbody', box), act = $('#qact', box), key = (i, t) => `<span class="k">${i}</span><span>${esc(t)}</span>`;
   if (q.type === 'mc') body.innerHTML = `<div class="opts">${st.mcOrder.map((o, i) => `<button class="opt" data-o="${o}">${key(i + 1, q.options[o])}</button>`).join('')}</div>`;
   if (q.type === 'tf') body.innerHTML = `<div class="tf"><button class="opt" data-tf="1">${key(1, 'Richtig')}</button><button class="opt" data-tf="0">${key(2, 'Falsch')}</button></div>`;
@@ -433,7 +434,7 @@ function finishQ(box, score, given, self) {
   if (!(id in R.first)) R.first[id] = { score, given };
   const fb = $('#fb', box), act = $('#qact', box);
   // Warum-Prompt (Selbsterklärung, Bisra et al. 2018): nach richtiger Antwort erst selbst begründen, dann Musterlösung
-  const why = !test && !pre && score >= 1 && G.opt.why && (q.type === 'mc' || q.type === 'tf') && q.explain && q.explain.length >= 40 && !R.rep[id];
+  const why = !test && !pre && score >= 1 && G.opt.why && (q.type === 'mc' || q.type === 'tf') && !q.fig && q.explain && q.explain.length >= 40 && !R.rep[id];
   if (why) {
     fb.innerHTML = `<div class="feedback ok"><h3>Richtig</h3></div><div class="why"><label for="why">Erkläre in einem Satz, warum.</label><textarea id="why" rows="2" placeholder="Weil …"></textarea><div id="whyModel"></div></div>`;
     act.innerHTML = `<button class="btn ghost" id="next">Überspringen</button><button class="btn primary" id="whyShow">Vergleichen</button>`;

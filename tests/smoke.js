@@ -204,6 +204,24 @@ async function answerCurrent(p, right = true) {
     if (r.saved !== 2 || !r.tomorrow || r.today === 'retest' || r.next !== 'retest' || r.title !== 'Testfehler von gestern' || !r.cleared) errs.push('folgetag ' + JSON.stringify(r));
     await p.close();
   }
+  // Schemazeichnungen mit Beschriftung + Bildfragen „Was ist markiert?“ (Aufgabe 9)
+  {
+    const p = await b.newPage({ viewport: { width: 390, height: 844 } }); p.on('pageerror', e => errs.push('bild ' + e.message));
+    for (const [slug, figs] of [['strahlentherapie', ['roehre', 'linac', 'bragg']], ['chromatographie', ['gc', 'hplc']]]) {
+      await p.goto(BASE + '#' + slug + '/start'); await p.waitForTimeout(3000);
+      const r = await p.evaluate(figs => figs.map(f => { const F = FIG[f], s = SEC[F.ch + '|' + F.sec], n = Object.keys(F.parts).length, qs = Q.filter(q => q.fig === f);
+        const tmp = document.createElement('div'); tmp.innerHTML = secHTML(F.ch, s); const svg = tmp.querySelector('svg.fig');
+        const lbls = svg ? svg.querySelectorAll('[data-p] .lbl').length : 0; const inLesson = LESSONS.some(l => qs.every(q => l.qs.includes(q.id)));
+        return { f, sec: !!s, svg: !!svg, lbls: lbls >= n, qs: qs.length === n, opts: qs.every(q => new Set(q.options).size === 4), inLesson }; }), figs);
+      r.filter(x => !(x.sec && x.svg && x.lbls && x.qs && x.opts && x.inLesson)).forEach(x => errs.push('bild ' + JSON.stringify(x)));
+    }
+    await p.evaluate(() => startSession({ ids: ['fig-hplc-pumpe'], mode: 'ueben' })); await p.waitForTimeout(500);
+    const q = await p.evaluate(() => { const s = document.querySelector('#v-quiz svg.fig.quiz'); return s && { mark: !!s.querySelector('.mark[data-p="pumpe"]'), hidden: getComputedStyle(s.querySelector('.lbl')).display === 'none', over: document.documentElement.scrollWidth - innerWidth }; });
+    if (!q || !q.mark || !q.hidden || q.over > 0) errs.push('bildfrage ' + JSON.stringify(q));
+    await answerCurrent(p, true); if (!(await p.evaluate(() => S.q['fig-hplc-pumpe'] && S.q['fig-hplc-pumpe'].ok))) errs.push('bildfrage nicht gewertet');
+    await p.screenshot({ path: OUT + 'bildfrage_390.png' });
+    await p.close();
+  }
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'OK');
   await b.close();
 })();
