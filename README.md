@@ -19,7 +19,8 @@ Dann http://localhost:8000 öffnen (per Doppelklick auf `index.html` gehen die T
    - Fragen (jede mit `id` eindeutig, `ch` = Kapitel-id, `sec` = Abschnitts-id oder null):
      `mc` (options[4], answer 0–3, explain), `tf` (answer true/false), `cloze` (q mit genau einem `___`, answers[]), `order` (items in richtiger Reihenfolge), `match` (pairs [[Begriff, Erklärung]]), `open` (answer)
 2. Eintrag in `themen/index.json` ergänzen (slug, title, fach, desc, accent, count, chapters).
-3. In `sw.js` die Versionsnummer `lernstudio-vN` erhöhen, damit alle Geräte die neue Version laden.
+3. Fragen ohne Abschnitt den Folien zuordnen (optional): `python tools/fragen_zuordnen.py themen/<slug>.json --schreiben`.
+4. In `sw.js` die Versionsnummer `lernstudio-vN` erhöhen, damit alle Geräte die neue Version laden.
 
 ## Lernprinzipien (Quellen)
 - Abfragen statt Wiederlesen: Roediger & Karpicke 2006

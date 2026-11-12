@@ -183,6 +183,16 @@ async function answerCurrent(p, right = true) {
     await p.evaluate(() => { G.opt.why = true; saveG(); });
     await p.close();
   }
+  // Lektionen haben gemischte Fragetypen, nicht nur offene Fragen (Aufgabe 7)
+  {
+    const p = await b.newPage(); p.on('pageerror', e => errs.push('typen ' + e.message));
+    for (const slug of ['chromatographie', 'strahlentherapie']) {
+      await p.goto(BASE + '#' + slug + '/start'); await p.waitForTimeout(2500);
+      const r = await p.evaluate(() => { const withQ = LESSONS.filter(l => l.qs.length); const mixed = withQ.filter(l => new Set(l.qs.map(id => QBY[id].type)).size >= 2 && l.qs.some(id => QBY[id].type !== 'open')); return { n: withQ.length, mixed: mixed.length }; });
+      if (r.mixed < r.n * .75) errs.push(`typen ${slug}: nur ${r.mixed} von ${r.n} Lektionen gemischt`);
+    }
+    await p.close();
+  }
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'OK');
   await b.close();
 })();
