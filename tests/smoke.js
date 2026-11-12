@@ -149,6 +149,24 @@ async function answerCurrent(p, right = true) {
     }
     await p.close();
   }
+  // Gemeistert erst nach verzögerter, gemischter Abfrage; Fehler stuft zurück (Aufgabe 5)
+  {
+    const p = await b.newPage(); p.on('pageerror', e => errs.push('meister ' + e.message));
+    await p.goto(BASE + '#chromatographie/start'); await p.waitForTimeout(2500);
+    const r = await p.evaluate(() => {
+      const [a, c] = [Q[0].id, Q[1].id], old = () => ({ c: 1, w: 0, b: 2, ok: true, t: Date.now() - 2 * DAY, due: 0 });
+      const out = {};
+      S.q[a] = old(); record(a, 1, false, false); out.einzeln = mastered(a);          // nicht gemischt → nein
+      S.q[a] = old(); S.q[a].t = Date.now() - 3600e3; record(a, 1, false, true); out.sofort = mastered(a); // zu früh → nein
+      S.q[a] = old(); record(a, 1, false, true); out.gemischt = mastered(a);          // verzögert + gemischt → ja
+      record(a, 0, false, true); out.nachFehler = mastered(a);                         // Fehler → zurück
+      S.q[c] = old(); out.neu = mastered(c);                                           // alter Stand (b ≥ 2) zählt nicht automatisch
+      out.runMixed = newRun({ ids: [Q[0].id, Q.find(q => q.ch !== Q[0].ch).id] }).mixed && !newRun({ ids: [Q[0].id, Q[1].id], el: 'lektion' }).mixed;
+      delete S.q[a]; delete S.q[c]; saveS(); return out;
+    });
+    if (r.einzeln || r.sofort || !r.gemischt || r.nachFehler || r.neu || !r.runMixed) errs.push('Meisterung ' + JSON.stringify(r));
+    await p.close();
+  }
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'OK');
   await b.close();
 })();

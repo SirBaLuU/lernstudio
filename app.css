@@ -234,7 +234,8 @@ details.rv div{margin-top:10px;display:grid;gap:6px;font-size:.95rem}
 .chbar{display:grid;gap:6px}
 .chbar .top{display:flex;justify-content:space-between;gap:10px;font-size:.93rem}
 .days{display:flex;align-items:flex-end;gap:6px;height:120px;padding-top:10px}
-.days div{flex:1;display:grid;justify-items:center;gap:4px;height:100%;align-content:end;min-width:0}
+.days div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%;min-width:0}
+.days i{flex:none;max-height:calc(100% - 20px)}
 .days i{display:block;width:100%;max-width:26px;border-radius:6px 6px 2px 2px;background:var(--dose);min-height:3px;transition:height .8s}
 .days small{font-size:.68rem;color:var(--muted)}
 .weak{display:grid;gap:8px}

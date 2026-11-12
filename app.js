@@ -39,20 +39,23 @@ const chTitle = c => c.label ? c.title.replace(c.label, '').replace(/^[\s–-]+/
 /* ---------- Lernlogik ---------- */
 function daysToExam() { if (!S || !S.exam) return null; const d = Math.ceil((new Date(S.exam + 'T00:00') - new Date(dayKey() + 'T00:00')) / DAY); return d; }
 function interval(b) { let d = STEP[b]; const left = daysToExam(); if (left != null && left > 0) d = Math.min(d, Math.max(1, Math.round(left * .3))); return d; } // Abstand ≈ 30 % der Restzeit (Cepeda 2008)
-function record(id, score, bonus) {
+// Gemeistert nur nach verzögerter (≥ 20 h nach der letzten richtigen Antwort), gemischter Abfrage; Fehler nimmt es wieder weg (Khan-Prinzip)
+function record(id, score, bonus, mixed) {
   const st = S.q[id] || (S.q[id] = { c: 0, w: 0, b: 0 });
+  const delayed = st.ok && st.t && Date.now() - st.t >= 20 * 36e5;
+  if (score < 1) st.m = false; else if (mixed && delayed) st.m = true;
   st.c += score; st.w += 1 - score; st.ok = score >= 1; st.t = Date.now();
   st.b = score >= 1 ? Math.min(5, st.b + 1 + (bonus ? 1 : 0)) : score > 0 ? Math.max(1, st.b - 1) : 0;
   st.due = Date.now() + interval(st.b) * DAY;
   G.days[dayKey()] = (G.days[dayKey()] || 0) + 1; saveS(); saveG();
 }
-const mastered = id => { const s = S.q[id]; return !!(s && s.ok && s.b >= 2); };
+const mastered = id => { const s = S.q[id]; return !!(s && s.m); };
 const isDue = id => { const s = S.q[id]; return !!(s && s.due <= Date.now()); };
 function lessonLevel(l) {
   const sts = l.qs.map(id => S.q[id]); const ans = sts.filter(Boolean);
   if (!ans.length) return S.done[l.id] ? 1 : 0;
   const acc = ans.reduce((a, s) => a + s.c / (s.c + s.w), 0) / ans.length;
-  if (ans.length === sts.length && ans.every(s => s.ok)) return ans.every(s => s.b >= 2) ? 4 : 3;
+  if (ans.length === sts.length && ans.every(s => s.ok)) return ans.every(s => s.m) ? 4 : 3;
   return acc >= .7 ? 2 : 1;
 }
 function streak() { let n = 0; const d = new Date(); if (!G.days[dayKey(d)]) d.setDate(d.getDate() - 1); while (G.days[dayKey(d)]) { n++; d.setDate(d.getDate() - 1); } return n; }
@@ -146,7 +149,7 @@ const RENDER = {};
 
 /* ---------- Bibliothek ---------- */
 RENDER.home = el => {
-  const prog = t => { const s = store.get(tkey(t.slug), { q: {} }); const m = Object.values(s.q || {}).filter(x => x.ok && x.b >= 2).length; return { m, p: t.count ? m / t.count : 0 }; };
+  const prog = t => { const s = store.get(tkey(t.slug), { q: {} }); const m = Object.values(s.q || {}).filter(x => x.m).length; return { m, p: t.count ? m / t.count : 0 }; };
   el.innerHTML = `
   <div class="lib-hero"><h1>Lernstudio</h1><p>Kurze Lektionen, die dich abfragen statt nur vorlesen. Was du schon kannst, kommt seltener, was wackelt, öfter.</p></div>
   <div class="topics">${TOPICS.map(t => { const p = prog(t); return `
@@ -333,7 +336,7 @@ function rateCard(r) { const id = K.list.shift(); record(id, [0, .5, 1, 1][r], r
 const QS = { chapters: null, types: Object.keys(TYPES), count: 10, mode: 'ueben', time: 0, weak: false };
 let R = null;
 const poolFor = o => Q.filter(q => o.chapters.includes(q.ch) && o.types.includes(q.type) && (!o.weak || (S.q[q.id] && !S.q[q.id].ok)));
-function newRun(o) { return { list: o.ids.slice(), i: 0, mode: o.mode, time: o.time || 0, first: {}, rep: {}, t0: Date.now(), state: null, el: o.el || 'quiz', onDone: o.onDone, title: o.title || '' }; }
+function newRun(o) { return { mixed: o.el !== 'lektion' && (o.mode === 'test' || new Set(o.ids.map(id => QBY[id].ch)).size >= 2), list: o.ids.slice(), i: 0, mode: o.mode, time: o.time || 0, first: {}, rep: {}, t0: Date.now(), state: null, el: o.el || 'quiz', onDone: o.onDone, title: o.title || '' }; }
 function startSession(o) { if (!o.ids.length) return toast('Keine Fragen für diese Auswahl.'); R = newRun(o); LS = null; tgo('quiz/run'); }
 RENDER.quiz = el => { if (!QS.chapters || !QS.chapters.every(c => CHBY[c])) QS.chapters = CH.map(c => c.id); if (SUB === 'ergebnis' && R && R.done) return renderResult(el); if (SUB === 'run' && R && R.el === 'quiz' && !R.done) { el.onclick = null; el.innerHTML = '<div id="runbox"></div>'; return renderQ($('#runbox', el)); } renderSetup(el); };
 function renderSetup(el) {
@@ -420,7 +423,7 @@ function drawMatch(box, q) { const st = R.state, rightOf = {}; for (const l in s
 function finishQ(box, score, given, self) {
   const st = R.state; if (st.done) return; st.done = true; clearInterval(timerId);
   const id = st.id, q = QBY[id], test = R.mode === 'test', pre = R.mode === 'pre';
-  if (!pre) record(id, score);
+  if (!pre) record(id, score, false, R.mixed);
   if (st.sure && score < 1 && !pre) { S.q[id].hc = (S.q[id].hc || 0) + 1; saveS(); }
   if (!(id in R.first)) R.first[id] = { score, given };
   const fb = $('#fb', box), act = $('#qact', box);
@@ -480,7 +483,7 @@ RENDER.statistik = el => {
     <div class="panel stat"><small>Gemeistert</small><b class="num" data-count="${m}">0</b><small>von ${Q.length} Fragen</small></div>
     <div class="panel stat"><small>Sicher, aber falsch</small><b class="num">${hc}</b><small>Fehleinschätzungen</small></div>
   </div>
-  <div class="panel" style="display:grid;gap:14px"><h3>Lektionen nach Stand</h3><div class="levels">${LEVEL.map((n, i) => `<div class="lv${i}"><span class="node"></span><b class="num">${lv[i]}</b><small>${n}</small></div>`).join('')}</div><p class="muted">Gemeistert heißt: alle Fragen richtig, auch bei einer späteren Wiederholung.</p></div>
+  <div class="panel" style="display:grid;gap:14px"><h3>Lektionen nach Stand</h3><div class="levels">${LEVEL.map((n, i) => `<div class="lv${i}"><span class="node"></span><b class="num">${lv[i]}</b><small>${n}</small></div>`).join('')}</div><p class="muted">Gemeistert heißt: alle Fragen auch in einer gemischten Runde oder Testsimulation richtig, frühestens am Tag nach der letzten richtigen Antwort. Ein Fehler stuft wieder zurück.</p></div>
   <div class="panel" style="display:grid;gap:14px"><h3>Letzte 14 Tage</h3><div class="days">${days.map(([d, n]) => `<div title="${n} Antworten"><i style="height:${n / max * 100}%"></i><small>${d.getDate()}.</small></div>`).join('')}</div></div>
   <div class="panel" style="display:grid;gap:12px"><h3>Hier wackelt es noch</h3>${weak.length ? `<div class="weak">${weak.map(([l, a]) => `<div class="w"><span><strong>${esc(chName(CHBY[l.ch]))}</strong>, ${esc(l.title)} <span class="muted num">(${Math.round(a * 100)}% richtig)</span></span><button class="btn sm primary" data-wl="${esc(l.id)}">Lektion üben</button></div>`).join('')}</div>` : '<p class="muted">Beantworte ein paar Fragen, dann siehst du hier deine Lücken.</p>'}</div>`;
   countUp(el);
