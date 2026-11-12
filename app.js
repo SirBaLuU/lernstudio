@@ -13,7 +13,8 @@ const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? 
 
 /* ---------- Zustand ---------- */
 const G = Object.assign({ days: {} }, store.get('lernstudio:g', {}));
-G.opt = Object.assign({ theme: 'system', motion: true, big: false, conf: false, why: true, ret: .9 }, G.opt || {});
+G.opt = Object.assign({ theme: 'system', motion: true, big: false, conf: false, why: true, ret: .9, goal: 0, len: 6, vid: false }, G.opt || {});
+if (![4, 6, 10].includes(G.opt.len)) G.opt.len = 6; if (![0, 10, 20, 40].includes(G.opt.goal)) G.opt.goal = 0;
 G.opt.ret = Math.min(.95, Math.max(.8, +G.opt.ret || .9)); // Ziel-Behaltensrate, auch nach Laden einer Sicherung im gültigen Bereich
 const saveG = () => store.set('lernstudio:g', G);
 let TOPICS = [], T = null, CH = [], Q = [], QBY = {}, SEC = {}, CHBY = {}, LESSONS = [], LBY = {}, S = null;
@@ -32,7 +33,7 @@ async function loadTopic(slug) {
     cur.secs.push(s.id); cur.qs.push(...Q.filter(q => q.ch === c.id && q.sec === s.id).map(q => q.id));
     if (cur.qs.length >= 5 || cur.secs.length >= 3 || i === c.sections.length - 1) { cur.id = c.id + '~' + LESSONS.filter(l => l.ch === c.id).length; cur.title = SEC[c.id + '|' + cur.secs[0]].title.replace(/^Folie \d+: /, ''); LESSONS.push(cur); LBY[cur.id] = cur; cur = null; }
   }); });
-  S = Object.assign({ q: {}, done: {}, read: {}, exam: '' }, store.get(tkey(slug), {}));
+  S = Object.assign({ q: {}, done: {}, read: {}, exam: '', mark: {} }, store.get(tkey(slug), {}));
   LS = null; R = null;
 }
 const chName = c => c.label || 'Kapitel ' + c.nr;
@@ -159,7 +160,7 @@ async function route() {
   if (r.view === 'quiz' && r.sub === 'ergebnis' && !(R && R.el === 'quiz' && R.done)) return goReplace(T.slug + '/quiz');
   SUB = r.sub || '';
   const draw = () => { show(r.view); RENDER[r.view]($('#v-' + r.view)); drawNav(r.view); drawCrumbs(r); };
-  if (current && current !== r.view && document.startViewTransition && motionOK()) document.startViewTransition(draw); else draw();
+  if (current && current !== r.view && document.startViewTransition && motionOK()) { const vt = document.startViewTransition(draw); vt.ready.catch(() => { }); vt.finished.catch(() => { }); } else draw(); // schnelles Weiterklicken bricht die Animation ab, das ist kein Fehler
   if (current !== r.view || route.sub !== SUB) window.scrollTo(0, 0);
   current = r.view; route.sub = SUB;
 }
@@ -230,7 +231,10 @@ RENDER.start = el => {
     <div class="panel stat"><small>Lektionen geschafft</small><b class="num"><span data-count="${LESSONS.length - open}">0</span><span class="muted" style="font-size:1.1rem"> / ${LESSONS.length}</span></b><div class="bar"><i style="--w:${(LESSONS.length - open) / LESSONS.length * 100}%"></i></div></div>
     <div class="panel stat"><small>Test am</small><input type="date" id="exam" value="${esc(S.exam)}" aria-label="Datum des Tests"><small>${left == null ? 'Datum setzen: Wiederholungen werden danach geplant.' : left > 0 ? `Noch ${left} ${left === 1 ? 'Tag' : 'Tage'}.` : left === 0 ? 'Heute ist Test. Viel Erfolg!' : 'Test ist vorbei.'}</small></div>
   </div>
-  ${(() => { const h = today(); return h.n ? `<div class="panel recap" id="recap"><h3>Heute gelernt</h3><p><strong class="num">${h.n}</strong> ${h.n === 1 ? 'Frage' : 'Fragen'} abgerufen, <strong class="num">${h.ok}</strong> davon zuletzt richtig${h.m ? `, <strong class="num">${h.m}</strong> gemeistert` : ''}. ${h.ok < h.n ? 'Was heute falsch war, kommt bald wieder.' : 'Stark – morgen kurz wiederholen, dann sitzt es.'}</p></div>` : ''; })()}
+  ${(() => { const h = today(), g = G.opt.goal, all = G.days[dayKey()] || 0;
+    // Tagesziel (konkret, erreichbar; Locke & Latham 2002) – zählt Abrufe in allen Themen
+    const goal = g ? `<p class="goal" id="goal"><span>Tagesziel: <strong class="num">${Math.min(all, g)} / ${g}</strong> Fragen${all >= g ? ' – geschafft.' : ''}</span><span class="bar"><i style="--w:${Math.min(1, all / g) * 100}%"></i></span></p>` : '';
+    return h.n || g ? `<div class="panel recap" id="recap"><h3>Heute gelernt</h3>${h.n ? `<p><strong class="num">${h.n}</strong> ${h.n === 1 ? 'Frage' : 'Fragen'} abgerufen, <strong class="num">${h.ok}</strong> davon zuletzt richtig${h.m ? `, <strong class="num">${h.m}</strong> gemeistert` : ''}. ${h.ok < h.n ? 'Was heute falsch war, kommt bald wieder.' : 'Stark – morgen kurz wiederholen, dann sitzt es.'}</p>` : ''}${goal}</div>` : ''; })()}
   <div class="section-head"><h2>Lernpfad</h2><span class="muted">Jede Lektion: 2 Vortestfragen, kurz lesen, dann abfragen, bis alles sitzt.</span></div>
   <div class="path">${CH.map(c => `
     <section class="path-ch"><h3><span class="badge">${esc(c.badge || c.nr)}</span>${esc(chTitle(c))}</h3>
@@ -248,7 +252,7 @@ let LS = null;
 function startLesson(id) {
   const l = LBY[id]; const qs = l.qs.map(x => QBY[x]);
   const pre = shuffle(qs.filter(q => q.type === 'tf' || q.type === 'mc')).slice(0, 2).map(q => q.id);
-  const main = qs.filter(q => !pre.includes(q.id)).sort((a, b) => (mastered(a.id) - mastered(b.id)) || (RECALL[a.type] - RECALL[b.type])).slice(0, 6).map(q => q.id);
+  const main = qs.filter(q => !pre.includes(q.id)).sort((a, b) => (mastered(a.id) - mastered(b.id)) || (RECALL[a.type] - RECALL[b.type])).slice(0, G.opt.len).map(q => q.id);
   LS = { id, stage: pre.length ? 'pre' : 'read', pre, main: main.length ? main : pre };
   if (LS.stage === 'pre') LS.preRun = R = newRun({ ids: pre, mode: 'pre', el: 'lektion', onDone: () => { LS.stage = 'read'; R = null; goReplace(T.slug + '/lektion/read'); } });
   tgo('lektion/' + LS.stage);
@@ -305,7 +309,9 @@ RENDER.lernen = el => {
     if (q.length >= 2) { const hits = []; CH.forEach(k => k.sections.forEach(s => { const tx = secText(s), i = tx.toLowerCase().indexOf(q); if (i >= 0) hits.push({ k, s, snip: tx.slice(Math.max(0, i - 60), i + 90) }); }));
       const hl = h => h.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), m => `<mark>${m}</mark>`);
       body.innerHTML = `<div class="hits"><p class="muted">${hits.length} Treffer</p>${hits.map(h => `<button class="hit" data-goto="${h.k.id}|${esc(h.s.id)}"><strong>${esc(chName(h.k))}, ${esc(h.s.title)}</strong><small>…${hl(esc(h.snip))}…</small></button>`).join('')}</div>`; return; }
-    body.innerHTML = linksHTML(c.links, 'Zum Nachlesen im Internet') + c.sections.map(s => secHTML(c.id, s)).join('');
+    // Erklärvideo-Suche nur als Link (kein eingebettetes Video, keine Anfrage an YouTube ohne Klick)
+    const vid = G.opt.vid ? `<p class="vidlink"><a href="https://www.youtube.com/results?search_query=${encodeURIComponent(T.title + ' ' + chTitle(c) + ' einfach erklärt')}" target="_blank" rel="noopener">Erklärvideo zu „${esc(chTitle(c))}“ auf YouTube suchen</a> <span class="muted">Fremde Inhalte, nicht geprüft</span></p>` : '';
+    body.innerHTML = linksHTML(c.links, 'Zum Nachlesen im Internet') + vid + c.sections.map(s => secHTML(c.id, s)).join('');
   };
   draw();
   $('#lsearch', el).oninput = e => { L.q = e.target.value; draw(); };
@@ -353,9 +359,9 @@ function flip() { if (current !== 'karten' || !K.list || !K.list.length) return;
 function rateCard(r) { const id = K.list.shift(); record(id, [0, .5, 1, 1][r], r === 3); if (r === 0) K.list.splice(Math.min(3, K.list.length), 0, id); K.flipped = false; RENDER.karten($('#v-karten')); }
 
 /* ---------- Üben (freies Quiz und Test) ---------- */
-const QS = { chapters: null, types: Object.keys(TYPES), count: 10, mode: 'ueben', time: 0, weak: false };
+const QS = { chapters: null, types: Object.keys(TYPES), count: 10, mode: 'ueben', time: 0, weak: false, mark: false };
 let R = null;
-const poolFor = o => Q.filter(q => o.chapters.includes(q.ch) && o.types.includes(q.type) && (!o.weak || (S.q[q.id] && !S.q[q.id].ok)));
+const poolFor = o => Q.filter(q => o.chapters.includes(q.ch) && o.types.includes(q.type) && (!o.weak || (S.q[q.id] && !S.q[q.id].ok)) && (!o.mark || S.mark[q.id]));
 function newRun(o) { return { mixed: o.el !== 'lektion' && (o.mode === 'test' || new Set(o.ids.map(id => QBY[id].ch)).size >= 2), list: o.ids.slice(), i: 0, mode: o.mode, time: o.time || 0, first: {}, rep: {}, t0: Date.now(), state: null, el: o.el || 'quiz', onDone: o.onDone, title: o.title || '' }; }
 function startSession(o) { if (!o.ids.length) return toast('Keine Fragen für diese Auswahl.'); R = newRun(o); LS = null; tgo('quiz/run'); }
 RENDER.quiz = el => { if (!QS.chapters || !QS.chapters.every(c => CHBY[c])) QS.chapters = CH.map(c => c.id); if (SUB === 'ergebnis' && R && R.done) return renderResult(el); if (SUB === 'run' && R && R.el === 'quiz' && !R.done) { el.onclick = null; el.innerHTML = '<div id="runbox"></div>'; return renderQ($('#runbox', el)); } renderSetup(el); };
@@ -373,7 +379,7 @@ function renderSetup(el) {
       <div><span class="label">Modus</span>${seg('mode', [['ueben', 'Üben mit Lösung'], ['test', 'Testsimulation']])}</div>
       <div><span class="label">Zeit pro Frage</span>${seg('time', [[0, 'Ohne'], [30, '30 s'], [60, '60 s']])}</div>
     </div>
-    <div class="row"><button class="chip" aria-pressed="${QS.weak}" id="weak">Nur Fragen, die zuletzt falsch waren</button></div>
+    <div class="row"><button class="chip" aria-pressed="${QS.weak}" id="weak">Nur Fragen, die zuletzt falsch waren</button><button class="chip" aria-pressed="${QS.mark}" id="markOnly">Nur gemerkte Fragen (${Object.keys(S.mark).filter(id => QBY[id]).length})</button></div>
     <div class="qactions"><span class="muted num">${n} passende Fragen</span><button class="btn primary" id="go" ${n ? '' : 'disabled'}>Runde starten</button></div>
   </div>`;
   el.onclick = e => { const b = e.target.closest('button'); if (!b) return; const multi = b.closest('[data-multi]'), seg = b.closest('[data-key]');
@@ -381,6 +387,7 @@ function renderSetup(el) {
     else if (seg) { const k = seg.dataset.key; QS[k] = isNaN(+b.dataset.v) ? b.dataset.v : +b.dataset.v; }
     else if (b.id === 'resume') return tgo('quiz/run');
     else if (b.id === 'weak') QS.weak = !QS.weak;
+    else if (b.id === 'markOnly') QS.mark = !QS.mark;
     else if (b.id === 'go') return startSession({ ids: pick(poolFor(QS), QS.count), mode: QS.mode, time: QS.time, title: QS.mode === 'test' ? 'Testsimulation' : 'Übungsrunde' });
     renderSetup(el); };
 }
@@ -398,7 +405,7 @@ function renderQ(box) {
   const st = R.state, test = R.mode === 'test';
   box.innerHTML = `
   <div class="qtop">${R.el === 'quiz' ? '<button class="btn sm ghost" id="quit">Beenden</button>' : ''}<div class="bar"><i style="width:${R.i / R.list.length * 100}%"></i></div><span class="num muted">${Math.min(R.i + 1, R.list.length)} / ${R.list.length}</span>${R.time ? `<span class="timer" id="timer">${st.left} s</span>` : ''}</div>
-  <div class="qcard"><div class="qmeta"><span class="tag">${TYPES[q.type]}</span><span>${esc(chName(c))}${sec ? ', ' + esc(sec.title) : ''}</span>${R.rep[id] ? '<span class="tag rep">Nochmal</span>' : ''}</div>
+  <div class="qcard"><div class="qmeta"><span class="tag">${TYPES[q.type]}</span><span>${esc(chName(c))}${sec ? ', ' + esc(sec.title) : ''}</span>${R.rep[id] ? '<span class="tag rep">Nochmal</span>' : ''}${R.mode === 'pre' ? '' : `<button class="btn sm ghost markbtn" id="mark" aria-pressed="${!!S.mark[id]}">${S.mark[id] ? 'Gemerkt' : 'Merken'}</button>`}</div>
     ${q.type === 'cloze' ? '' : `<div class="qtext">${esc(q.q)}</div>`}${q.fig ? figHTML(q.fig, q.mark) : ''}<div id="qbody"></div><div id="fb"></div><div class="qactions" id="qact"></div></div>`;
   const body = $('#qbody', box), act = $('#qact', box), key = (i, t) => `<span class="k">${i}</span><span>${esc(t)}</span>`;
   if (q.type === 'mc') body.innerHTML = `<div class="opts">${st.mcOrder.map((o, i) => `<button class="opt" data-o="${o}">${key(i + 1, q.options[o])}</button>`).join('')}</div>`;
@@ -411,6 +418,7 @@ function renderQ(box) {
   box.onclick = e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.id === 'quit') return askQuit();
+    if (b.id === 'mark') { if (S.mark[id]) delete S.mark[id]; else S.mark[id] = 1; saveS(); b.setAttribute('aria-pressed', !!S.mark[id]); b.textContent = S.mark[id] ? 'Gemerkt' : 'Merken'; return toast(S.mark[id] ? 'Gemerkt – unter Üben als eigene Runde' : 'Nicht mehr gemerkt'); }
     if (b.id === 'quitNo') return $('#quitAsk').remove();
     if (b.id === 'quitYes') return endRun();
     if (b.id === 'next' || b.id === 'whyYes' || b.id === 'whyNo') return nextQ();
@@ -532,6 +540,9 @@ RENDER.optionen = el => {
     <div class="opt-row"><div><h3>Sicherheit abfragen</h3><p class="muted">Nach Multiple Choice und Richtig/Falsch fragst du dich: sicher oder geraten? Sichere Fehler kommen früher wieder.</p></div>${seg('conf', [[false, 'Aus'], [true, 'An']])}</div>
     <div class="opt-row"><div><h3>Ziel-Behaltensrate</h3><p class="muted">Wie sicher du eine Frage beim nächsten Abruf noch weißt. Höher heißt öfter wiederholen. Empfohlen: 90 %.</p></div>${seg('ret', [[.8, '80 %'], [.85, '85 %'], [.9, '90 %'], [.95, '95 %']])}</div>
     <div class="opt-row"><div><h3>Warum-Fragen</h3><p class="muted">Nach einer richtigen Antwort erklärst du in einem Satz, warum, und vergleichst mit der Musterlösung. Das festigt Verständnis.</p></div>${seg('why', [[true, 'An'], [false, 'Aus']])}</div>
+    <div class="opt-row"><div><h3>Tagesziel</h3><p class="muted">Wie viele Fragen du dir pro Tag vornimmst, über alle Themen. Der Lernpfad zeigt, wie weit du bist.</p></div>${seg('goal', [[0, 'Aus'], [10, '10'], [20, '20'], [40, '40']])}</div>
+    <div class="opt-row"><div><h3>Lektionslänge</h3><p class="muted">Abfragefragen pro Lektion. Kurz passt, wenn du wenig Zeit oder Konzentration hast; mehrere kurze Einheiten über den Tag behältst du besser als eine lange.</p></div>${seg('len', [[4, 'Kurz'], [6, 'Normal'], [10, 'Lang']])}</div>
+    <div class="opt-row"><div><h3>Erklärvideos</h3><p class="muted">Im Lesen pro Kapitel ein Link zur YouTube-Suche. Fremde Videos sind nicht geprüft, im Zweifel gilt der Stoff hier.</p></div>${seg('vid', [[false, 'Aus'], [true, 'An']])}</div>
     <div class="opt-row"><div><h3>Fortschritt sichern</h3><p class="muted">Dein Lernstand liegt nur in diesem Browser. Als Datei sichern und auf einem anderen Gerät laden.</p></div><div class="row"><button class="btn" id="exp">Sichern</button><label class="btn" for="imp">Laden</label><input type="file" id="imp" accept="application/json" hidden></div></div>
     <div class="opt-row"><div><h3>Alles zurücksetzen</h3><p class="muted">Löscht Fortschritt in allen Themen auf diesem Gerät.</p></div><div class="row" id="resetBox"><button class="btn" id="reset1">Zurücksetzen</button></div></div>
   </div>`;
@@ -541,7 +552,7 @@ RENDER.optionen = el => {
     if (b.id === 'exp') { const data = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('lernstudio:')) data[k] = localStorage.getItem(k); } const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' })); a.download = 'lernstudio-fortschritt-' + dayKey() + '.json'; a.click(); }
     if (b.id === 'reset1') $('#resetBox', el).innerHTML = `<button class="btn ghost" id="reset0">Abbrechen</button><button class="btn danger" id="reset2">Ja, alles löschen</button>`;
     if (b.id === 'reset0') RENDER.optionen(el);
-    if (b.id === 'reset2') { Object.keys(localStorage).filter(k => k.startsWith('lernstudio:t:')).forEach(k => localStorage.removeItem(k)); G.days = {}; saveG(); if (T) S = { q: {}, done: {}, read: {}, exam: '' }; toast('Zurückgesetzt'); RENDER.optionen(el); drawNav('optionen'); }
+    if (b.id === 'reset2') { Object.keys(localStorage).filter(k => k.startsWith('lernstudio:t:')).forEach(k => localStorage.removeItem(k)); G.days = {}; saveG(); if (T) S = { q: {}, done: {}, read: {}, exam: '', mark: {} }; toast('Zurückgesetzt'); RENDER.optionen(el); drawNav('optionen'); }
   };
   $('#imp', el).onchange = async e => { try { const d = JSON.parse(await e.target.files[0].text()); Object.entries(d).forEach(([k, v]) => k.startsWith('lernstudio:') && localStorage.setItem(k, v)); toast('Fortschritt geladen'); setTimeout(() => location.reload(), 600); } catch (err) { toast('Die Datei ist keine Lernstudio-Sicherung.'); } };
 };

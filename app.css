@@ -390,3 +390,9 @@ input[type=date]{border:1px solid var(--line);border-radius:12px;padding:8px 10p
 .fig .qmark text{fill:#fff;font-weight:800;font-size:18px;font-family:var(--display)}
 @media (max-width:620px){.figure{overflow-x:auto}.fig{min-width:540px}.fig.quiz{min-width:0}} /* Beschriftung bleibt lesbar, Bild scrollt seitlich */
 .recap{display:grid;gap:6px;padding:16px 20px}
+/* Tagesziel, Merken, Erklärvideo-Link */
+.goal{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;margin:0}
+.goal .bar{min-width:80px}
+.markbtn{margin-left:auto}
+.vidlink{margin:12px 0 0;font-size:.93rem}
+.vidlink a{color:var(--accent);font-weight:700}

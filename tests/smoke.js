@@ -284,6 +284,29 @@ async function answerCurrent(p, right = true) {
     await p.click('[data-key="ret"] [data-v="0.9"]');
     await p.close();
   }
+  // Neue Optionen: Tagesziel, Lektionslänge, Merken, Erklärvideos
+  {
+    const p = await b.newPage(); p.on('pageerror', e => errs.push('opt2 ' + e.message));
+    const bad = m => errs.push('Optionen neu: ' + m);
+    await p.goto(BASE + '#optionen'); await p.waitForTimeout(1500);
+    for (const [k, v] of [['goal', '10'], ['len', '4'], ['vid', 'true']]) { await p.click(`[data-key="${k}"] [data-v="${v}"]`); await p.waitForTimeout(150); }
+    const o = await p.evaluate(() => G.opt); if (o.goal !== 10 || o.len !== 4 || o.vid !== true) bad('speichern ' + JSON.stringify(o));
+    await p.evaluate(() => go('strahlentherapie/start')); await p.waitForTimeout(1500);
+    if (!/Tagesziel: \d+ \/ 10/.test(await p.textContent('#goal').catch(() => ''))) bad('Tagesziel fehlt im Lernpfad');
+    const len = await p.evaluate(() => { startLesson(LESSONS.find(l => l.qs.length > 8).id); return LS.main.length; });
+    if (len > 4) bad('Lektionslänge ' + len);
+    await p.evaluate(() => go('strahlentherapie/lernen')); await p.waitForTimeout(800);
+    const href = await p.getAttribute('.vidlink a', 'href').catch(() => null);
+    if (!href || !href.startsWith('https://www.youtube.com/results?search_query=')) bad('Videolink ' + href);
+    await p.evaluate(() => startSession({ ids: [Q[0].id, Q[1].id], mode: 'ueben', title: 'T' })); await p.waitForTimeout(500);
+    await p.click('#mark'); await p.waitForTimeout(150);
+    const m = await p.evaluate(() => ({ s: !!S.mark[Q[0].id], pool: poolFor(Object.assign({}, QS, { chapters: CH.map(c => c.id), mark: true })).length }));
+    if (!m.s || m.pool !== 1) bad('Merken ' + JSON.stringify(m));
+    await p.evaluate(() => { endRun(); go('strahlentherapie/quiz'); }); await p.waitForTimeout(600);
+    if (!/Nur gemerkte Fragen \(1\)/.test(await p.textContent('#markOnly').catch(() => ''))) bad('Merkliste im Üben');
+    await p.evaluate(() => { delete S.mark[Q[0].id]; saveS(); Object.assign(G.opt, { goal: 0, len: 6, vid: false }); saveG(); });
+    await p.close();
+  }
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'OK');
   await b.close();
 })();
