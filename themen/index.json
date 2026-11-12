@@ -1,0 +1,22 @@
+{
+ "topics": [
+  {
+   "slug": "strahlentherapie",
+   "title": "Strahlentherapie",
+   "fach": "Medizinische Gerätetechnik",
+   "desc": "Ionisierende Strahlung, Strahlenquellen, Tele- und Brachytherapie, Nebenwirkungen. Arbeitsheft und Testfragen 5.2.",
+   "accent": "#2C55E0",
+   "count": 923,
+   "chapters": 6
+  },
+  {
+   "slug": "chromatographie",
+   "title": "Chromatographie",
+   "fach": "AYCQ",
+   "desc": "Grundlagen, DC, GC und HPLC aus den Folien der Kapitel 12–15, mit Aufgaben und Lösungen.",
+   "accent": "#0E8A6A",
+   "count": 242,
+   "chapters": 4
+  }
+ ]
+}
