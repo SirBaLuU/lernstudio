@@ -274,7 +274,7 @@ RENDER.lektion = el => {
   el.onclick = e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.id === 'lback' || b.id === 'lback2') { R = null; LS = null; tgo('start'); }
-    if (b.id === 'toQuiz') { l.secs.forEach(sid => S.read[c.id + '|' + sid] = true); saveS(); if (!LS.main.length) { S.done[l.id] = true; saveS(); LS.stage = 'done'; return goReplace(T.slug + '/lektion/done'); } LS.stage = 'quiz'; if (!LS.run || LS.run.done) LS.run = newRun({ ids: LS.main, mode: 'ueben', el: 'lektion', onDone: () => { S.done[l.id] = true; saveS(); LS.stage = 'done'; R = null; goReplace(T.slug + '/lektion/done'); } }); tgo('lektion/quiz'); }
+    if (b.id === 'toQuiz') { l.secs.forEach(sid => S.read[c.id + '|' + sid] = true); saveS(); if (!LS.main.length) { S.done[l.id] = true; saveS(); LS.stage = 'done'; return goReplace(T.slug + '/lektion/done'); } LS.stage = 'quiz'; if (!LS.run || LS.run.done) LS.run = newRun({ ids: LS.main, mode: 'ueben', el: 'lektion', onDone: () => { S.done[l.id] = true; saveS(); LS.stage = 'done'; R = null; goReplace(T.slug + '/lektion/done'); } }); R = LS.run; tgo('lektion/quiz'); }
   };
 };
 

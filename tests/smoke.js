@@ -246,7 +246,7 @@ async function answerCurrent(p, right = true) {
     const PY = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3'), root = path.join(__dirname, '..');
     const run = f => spawnSync(PY, [path.join(root, 'tools/check_thema.py'), ...(f ? [f] : [])], { encoding: 'utf8', env: { ...process.env, PYTHONIOENCODING: 'utf-8' } });
     const all = run(); if (all.status !== 0) errs.push('check_thema: ' + all.stdout);
-    const tpl = JSON.parse(fs.readFileSync(path.join(root, 'tools/neues_thema.md'), 'utf8').match(/```json\n([\s\S]*?)```/)[1]);
+    const tpl = JSON.parse(fs.readFileSync(path.join(root, 'tools/neues_thema.md'), 'utf8').match(/```json\r?\n([\s\S]*?)```/)[1]);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lernstudio-')), f = path.join(dir, 'beispiel.json');
     fs.writeFileSync(f, JSON.stringify(tpl)); const ok = run(f).stdout.split('\n').filter(l => l.includes('FEHLER'));
     if (ok.length !== 1 || !ok[0].includes('index.json')) errs.push('Vorlage ungültig: ' + ok.join(' | '));
@@ -254,6 +254,7 @@ async function answerCurrent(p, right = true) {
     fs.writeFileSync(f, JSON.stringify(tpl)); const bad = run(f);
     if (bad.status !== 1 || !/4 verschiedene Optionen/.test(bad.stdout) || !/id doppelt/.test(bad.stdout) || !/genau ein ___/.test(bad.stdout)) errs.push('check_thema erkennt Fehler nicht: ' + bad.stdout);
   }
+  process.exitCode = errs.length ? 1 : 0; // für CI
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'OK');
   await b.close();
 })();

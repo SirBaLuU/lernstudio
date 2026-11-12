@@ -1,0 +1,23 @@
+# Smoke-Test bei jedem Push und Pull Request: Seite lokal ausliefern, Playwright klickt alle Ansichten durch.
+name: Smoke-Test
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Themen prüfen
+        run: python3 tools/check_thema.py
+      - name: Server starten
+        run: python3 -m http.server 8000 >/dev/null 2>&1 &
+      - name: Smoke-Test
+        run: node tests/smoke.js

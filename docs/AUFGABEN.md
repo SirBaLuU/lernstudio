@@ -16,4 +16,4 @@
 9. [x] (erledigt 2026-11-12) **Schemata/Bilder** zu Bragg-Peak, Röntgenröhre, LINAC, Gaschromatograph, HPLC als SVG mit Beschriftung im Bild + Bildfragen „Was ist markiert?“ (nur eigene Zeichnungen).
 10. [x] (erledigt 2026-11-12) **Serien-Pause** 1 Tag/Woche; Tagesrückblick „Heute gelernt“.
 11. [x] (erledigt 2026-11-12) **Neues Thema leicht hinzufügen:** `tools/neues_thema.md` mit Vorlage-JSON + Prüfskript `tools/check_thema.py` (Schema, eindeutige ids, mc 4 Optionen).
-12. **GitHub Action**: Smoke-Test bei jedem Push.
+12. [x] (erledigt 2026-11-12, auf GitHub noch nicht gelaufen) **GitHub Action**: Smoke-Test bei jedem Push.
