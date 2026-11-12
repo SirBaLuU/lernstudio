@@ -193,6 +193,17 @@ async function answerCurrent(p, right = true) {
     }
     await p.close();
   }
+  // Testfehler am Folgetag als kurze Runde (Aufgabe 8)
+  {
+    const p = await b.newPage(); p.on('pageerror', e => errs.push('folgetag ' + e.message));
+    await p.goto(BASE + '#strahlentherapie/start'); await p.waitForTimeout(3000);
+    await p.evaluate(() => { S.retest = null; startSession({ ids: Q.filter(q => q.type === 'tf').slice(0, 3).map(q => q.id), mode: 'test', title: 'Testsimulation' }); }); await p.waitForTimeout(300);
+    for (let i = 0; i < 3; i++) { await answerCurrent(p, i === 0); await p.waitForTimeout(500); }
+    await p.waitForTimeout(600);
+    const r = await p.evaluate(() => { const o = { saved: S.retest && S.retest.ids.length, tomorrow: S.retest && S.retest.day > dayKey(), today: nextAction().kind }; S.retest.day = dayKey(); o.next = nextAction().kind; runAction(nextAction()); o.title = R.title; o.cleared = !S.retest; return o; });
+    if (r.saved !== 2 || !r.tomorrow || r.today === 'retest' || r.next !== 'retest' || r.title !== 'Testfehler von gestern' || !r.cleared) errs.push('folgetag ' + JSON.stringify(r));
+    await p.close();
+  }
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'OK');
   await b.close();
 })();

@@ -12,7 +12,7 @@
 5. [x] (erledigt 2026-11-12) **Gemeistert erst nach verzögertem, gemischtem Test** (Khan-Prinzip); falscher Test senkt die Stufe.
 6. [x] (erledigt 2026-11-12) **Warum-Prompts:** nach richtiger Antwort bei Verständnisfragen „Erkläre in einem Satz, warum“ + Musterlösung zur Selbstbewertung (Bisra 2018).
 7. [x] (erledigt 2026-11-12) **Fragen ohne Abschnitt zuordnen** (Chromatographie: MC, Lückentext, Reihenfolge, Zuordnen per Stichwort zur passenden Folie), damit Lektionen gemischte Fragetypen bekommen.
-8. **Testfehler am Folgetag** automatisch als kurze Runde anbieten (Butler et al. 2007).
+8. [x] (erledigt 2026-11-12) **Testfehler am Folgetag** automatisch als kurze Runde anbieten (Butler et al. 2007).
 9. **Schemata/Bilder** zu Bragg-Peak, Röntgenröhre, LINAC, Gaschromatograph, HPLC als SVG mit Beschriftung im Bild + Bildfragen „Was ist markiert?“ (nur eigene Zeichnungen).
 10. **Serien-Pause** 1 Tag/Woche; Tagesrückblick „Heute gelernt“.
 11. **Neues Thema leicht hinzufügen:** `tools/neues_thema.md` mit Vorlage-JSON + Prüfskript `tools/check_thema.py` (Schema, eindeutige ids, mc 4 Optionen).

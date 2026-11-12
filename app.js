@@ -62,11 +62,15 @@ function streak() { let n = 0; const d = new Date(); if (!G.days[dayKey(d)]) d.s
 function dueIds() { return Q.filter(q => isDue(q.id)).sort((a, b) => S.q[a.id].due - S.q[b.id].due).map(q => q.id); }
 function nextAction() {
   const due = dueIds(); const next = LESSONS.find(l => !S.done[l.id]);
+  // Testfehler am Folgetag nochmal (verzögerte Rückmeldung, Butler et al. 2007)
+  const rt = S.retest && S.retest.day <= dayKey() && S.retest.ids.filter(id => QBY[id]);
+  if (rt && rt.length) return { kind: 'retest', ids: rt, label: 'Testfehler von gestern', sub: `${rt.length} ${rt.length === 1 ? 'Frage' : 'Fragen'} aus deiner Testsimulation, etwa ${Math.max(1, Math.round(rt.length * .5))} Minuten` };
   if (due.length >= 5 || (due.length && !next)) return { kind: 'review', n: Math.min(8, due.length), label: 'Wiederholen', sub: `${Math.min(8, due.length)} fällige Fragen, etwa ${Math.max(2, Math.round(Math.min(8, due.length) * .4))} Minuten` };
   if (next) return { kind: 'lesson', l: next, label: S.done[next.id] ? 'Lektion wiederholen' : 'Nächste Lektion', sub: `${chName(CHBY[next.ch])}: ${next.title}, etwa 5 Minuten` };
   return { kind: 'mixed', label: 'Gemischte Prüfungsrunde', sub: '10 Fragen quer durch alle Kapitel' };
 }
 function runAction(a) {
+  if (a.kind === 'retest') { S.retest = null; saveS(); return startSession({ ids: shuffle(a.ids), mode: 'ueben', title: 'Testfehler von gestern' }); }
   if (a.kind === 'review') startSession({ ids: dueIds().slice(0, a.n), mode: 'ueben', title: 'Wiederholung' });
   if (a.kind === 'lesson') startLesson(a.l.id);
   if (a.kind === 'mixed') startSession({ ids: pick(Q.filter(q => q.type !== 'open'), 10), mode: 'ueben', title: 'Gemischte Runde' });
@@ -451,10 +455,12 @@ const grade = p => p >= .89 ? [1, 'Sehr gut'] : p >= .76 ? [2, 'Gut'] : p >= .63
 function renderResult(el) {
   clearInterval(timerId);
   const ids = Object.keys(R.first), n = ids.length, p = n ? ids.reduce((a, id) => a + R.first[id].score, 0) / n : 0, [g, gt] = grade(p), wrong = ids.filter(id => R.first[id].score < 1);
+  if (R.mode === 'test' && !R.saved && wrong.length) { R.saved = true; S.retest = { day: dayKey(new Date(Date.now() + DAY)), ids: [...new Set([...(S.retest ? S.retest.ids : []), ...wrong])] }; saveS(); }
   el.innerHTML = `
   <div class="panel result">${ringSVG(p, 'richtig')}
     <div style="display:grid;gap:12px"><h2>${R.title}: ${p >= .89 ? 'ausgezeichnet' : p >= .63 ? 'gut gemacht' : 'dranbleiben'}</h2>
       ${R.mode === 'test' ? `<p class="grade">Note ${g}: ${gt} <span class="muted" style="font-size:.9rem;font-weight:400;font-family:var(--body)">(Richtwert)</span></p>` : ''}
+      ${R.mode === 'test' && wrong.length ? `<p class="muted">Morgen bekommst du ${wrong.length === 1 ? 'deinen Fehler' : `deine ${wrong.length} Fehler`} als kurze Runde im Lernpfad.</p>` : ''}
       <p class="muted num">${n} ${n === 1 ? 'Frage' : 'Fragen'}, ${ids.filter(i => R.first[i].score >= 1).length} richtig, ${wrong.length} mit Fehlern, etwa ${Math.max(1, Math.round((Date.now() - R.t0) / 60000))} min</p>
       <div class="row">${wrong.length ? `<button class="btn primary" id="again">${wrong.length} Fehler nochmal</button>` : ''}<button class="btn" id="newq">Neue Runde</button><button class="btn ghost" id="toPath">Zum Lernpfad</button></div></div></div>
   ${wrong.length ? `<h3>Das solltest du dir nochmal ansehen</h3><div class="review">${wrong.map(id => { const q = QBY[id], f = R.first[id]; return `<details class="rv"><summary><span class="dot" style="background:${f.score > 0 ? 'var(--part)' : 'var(--bad)'}"></span><span>${esc(q.q)}</span></summary><div><p><strong>Deine Antwort:</strong> ${esc(f.given)}</p><p><strong>Lösung:</strong> ${esc(correctText(q))}</p>${q.explain ? `<p class="muted">${esc(q.explain)}</p>` : ''}</div></details>`; }).join('')}</div>` : ''}`;
