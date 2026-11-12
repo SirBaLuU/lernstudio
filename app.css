@@ -242,7 +242,8 @@ details.rv div{margin-top:10px;display:grid;gap:6px;font-size:.95rem}
 .weak .w{display:flex;gap:12px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:14px;padding:10px 14px;background:var(--surface);flex-wrap:wrap}
 
 .opts-list{display:grid;gap:18px}
-.opt-row{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.opt-row{display:grid;gap:10px;justify-items:start;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.opt-row h4{margin:0;font-size:1.02rem}.opt-row p{margin:2px 0 0}
 .opt-row:last-child{border-bottom:0;padding-bottom:0}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:700;transition:all .3s;z-index:60;pointer-events:none;max-width:calc(100% - 32px)}
 .toast.show{opacity:1;transform:translate(-50%,0)}
@@ -393,6 +394,55 @@ input[type=date]{border:1px solid var(--line);border-radius:12px;padding:8px 10p
 /* Tagesziel, Merken, Erklärvideo-Link */
 .goal{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;margin:0}
 .goal .bar{min-width:80px}
-.qtop .markbtn{flex:none}
+
 .vidlink{margin:12px 0 0;font-size:.93rem}
 .vidlink a{color:var(--accent);font-weight:700}
+/* Abbildungen aus den Unterrichtsfolien + Vergrößerung */
+.photo{margin:16px 0;display:grid;gap:8px}
+.photo .zoom{all:unset;cursor:zoom-in;display:block;border-radius:var(--r-md);overflow:hidden;background:#fff;border:1px solid var(--line);transition:transform .25s ease,box-shadow .25s ease}
+.photo .zoom:hover{transform:translateY(-2px);box-shadow:0 10px 30px -12px rgba(0,0,0,.35)}
+.photo .zoom:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.photo img{display:block;width:100%;height:auto;max-height:420px;object-fit:contain}
+.photo .src{display:block;font-size:.8rem;color:var(--muted)}
+.zoombox{border:0;padding:16px;max-width:min(96vw,1100px);max-height:94vh;background:var(--surface);border-radius:var(--r-lg,18px);display:grid;gap:12px;justify-items:center}
+.zoombox::backdrop{background:rgba(8,12,20,.72);backdrop-filter:blur(3px)}
+.zoombox img{width:min(90vw,880px);height:auto;max-height:80vh;object-fit:contain;background:#fff;border-radius:8px}
+.zoombox[open]{animation:zoomIn .22s ease}
+@keyframes zoomIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+.no-motion .zoombox[open],.no-motion .photo .zoom{animation:none;transition:none}
+@media (prefers-reduced-motion:reduce){.zoombox[open]{animation:none}.photo .zoom{transition:none}}
+/* Variante A „Fokus“ (docs/varianten/fragen-und-optionen.html) */
+.qtop,.qcard,.quit-ask,#v-quiz .resume{max-width:760px;margin-inline:auto;width:100%}
+.opts-page{max-width:760px;margin-inline:auto;display:grid;gap:18px}
+.ogroup{margin:0;font-size:.78rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.markbtn{flex:none;display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:var(--muted);cursor:pointer}
+.markbtn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round}
+.markbtn:hover{background:var(--sunk);color:var(--ink)}
+.markbtn[aria-pressed=true]{color:var(--accent)}.markbtn[aria-pressed=true] svg{fill:currentColor}
+.markbtn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.opt.ok::after,.opt.no::after{margin-left:auto;align-self:center;font-weight:800;font-size:1.05rem}
+.opt.ok::after{content:"✓";color:var(--good)}.opt.no::after{content:"✕";color:var(--bad)}
+.pill.zero{background:var(--sunk);color:var(--muted)}
+/* Rückmeldung: ruhige, kurze Bewegung nur nach eigener Aktion */
+.opt.ok{animation:okPop .32s cubic-bezier(.2,.8,.2,1.2)}
+.opt.no{animation:noNudge .3s ease}
+.feedback{animation:fbIn .25s ease}
+.markbtn[aria-pressed=true] svg{animation:okPop .3s ease}
+@keyframes okPop{0%{transform:scale(1)}45%{transform:scale(1.02)}100%{transform:none}}
+@keyframes noNudge{0%,100%{transform:none}30%{transform:translateX(-4px)}65%{transform:translateX(3px)}}
+@keyframes fbIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.no-motion .opt.ok,.no-motion .opt.no,.no-motion .feedback,.no-motion .markbtn svg{animation:none}
+@media (prefers-reduced-motion:reduce){.opt.ok,.opt.no,.feedback,.markbtn svg{animation:none}}
+/* Optionen am PC: Titel links, Auswahl rechts */
+@media (min-width:700px){.opt-row{grid-template-columns:1fr auto;align-items:center;justify-items:stretch}.opt-row>.seg,.opt-row>.row{justify-self:end}}
+/* Tabellen mit Kopf am Handy als gestapelte Karten statt abgeschnittener Spalten */
+@media (max-width:620px){
+  .tablewrap.stack{border:0;overflow:visible}
+  .tablewrap.stack thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .tablewrap.stack table,.tablewrap.stack tbody,.tablewrap.stack tr,.tablewrap.stack td,.tablewrap.stack tbody th{display:block;width:auto}
+  .tablewrap.stack tbody th{border:0;padding:4px 14px;background:none}
+  .tablewrap.stack tr{border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:10px;padding:6px 0;background:var(--surface)}
+  .tablewrap.stack td{border:0;padding:4px 14px}
+  .tablewrap.stack tr>:first-child{font-weight:700}
+  .tablewrap.stack td[data-l]:not(:first-child)::before,.tablewrap.stack th+td[data-l]::before{content:attr(data-l) ": ";color:var(--muted);font-size:.85rem}
+}

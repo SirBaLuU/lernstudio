@@ -31,3 +31,7 @@ Ausführliche Anleitung mit Vorlage: `tools/neues_thema.md`. Prüfen: `python to
 - Bis zum Kriterium wiederholen: Rawson & Dunlosky (Successive Relearning)
 - Vortest vor dem Lesen: Richland, Kornell & Kao 2009
 - Sicherheitsabfrage (Hyperkorrektur): Butterfield & Metcalfe 2001
+
+## Abbildungen
+
+`bilder.js` ordnet Bilder aus `bilder/<thema>/` Abschnitten zu (Schlüssel `Kapitel|Abschnitt`, Wert `[Datei, Bildunterschrift, Quelle, Breite, Höhe]`). Bilder aus PDFs holen: `python tools/bilder_aus_pdf.py <pdf> <ordner> <präfix>`, dann verkleinert als WebP ablegen. Eigene Schemata (SVG) stehen in `figuren.js`.

@@ -336,6 +336,24 @@ async function answerCurrent(p, right = true) {
     if (!/keine Lernstudio-Sicherung/.test(await p.textContent('body'))) bad('leere Sicherung angenommen');
     await p.close();
   }
+  // Abbildungen aus den Folien: vorhanden, ladbar, vergrößerbar; Esc schließt nur die Vergrößerung
+  {
+    const p = await b.newPage(); p.on('pageerror', e => errs.push('bilder ' + e.message));
+    const bad = m => errs.push('Bilder: ' + m), broken = [];
+    p.on('response', r => { if (r.url().includes('/bilder/') && r.status() >= 400) broken.push(r.url()); });
+    await p.goto(BASE + '#strahlentherapie/lernen'); await p.waitForTimeout(1500);
+    const all = await p.evaluate(() => Object.values(IMG).flatMap(t => Object.values(t).flat()).map(x => x[0]));
+    const miss = await p.evaluate(async l => (await Promise.all(l.map(u => fetch(u).then(r => r.ok ? null : u)))).filter(Boolean), all);
+    if (all.length < 30 || miss.length) bad(`${all.length} Bilder, fehlen: ${miss.join(', ')}`);
+    const n = await p.$$eval('#v-lernen .photo img', l => l.length); if (!n) bad('keine Abbildung im Lesen');
+    await p.click('#v-lernen .photo .zoom'); await p.waitForTimeout(300);
+    if (!(await p.$('dialog.zoombox[open]'))) bad('Vergrößerung öffnet nicht');
+    await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+    if (await p.$('dialog.zoombox')) bad('Esc schließt Vergrößerung nicht');
+    if (!(await p.evaluate(() => location.hash)).includes('lernen')) bad('Esc hat die Ansicht verlassen');
+    if (broken.length) bad('HTTP-Fehler ' + broken.join(', '));
+    await p.close();
+  }
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'OK');
   process.exitCode = errs.length ? 1 : 0; // für CI – erst nach allen Prüfungen
   await b.close();

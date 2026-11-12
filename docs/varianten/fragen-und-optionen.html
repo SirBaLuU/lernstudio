@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>Varianten Frage + Optionen</title>
+<link rel="stylesheet" href="../../app.css">
+<style>
+  body{padding:24px 16px;display:grid;gap:40px;max-width:1240px;margin:auto}
+  h1{font-size:1.4rem}.v h2{font-size:1.1rem;margin:0 0 4px}.v>p{margin:0 0 14px;color:var(--muted)}
+  .mark{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:12px;border:0;background:transparent;color:var(--muted)}
+  .mark svg{width:22px;height:22px}.mark[aria-pressed=true]{color:var(--accent)}.mark[aria-pressed=true] path{fill:currentColor}
+  /* A Fokus: schmale Spalte, Lesezeichen-Symbol, Rückmeldung mit Symbol */
+  .va .qcard{max-width:720px;margin:auto}.va .head{display:flex;justify-content:space-between;align-items:center}
+  .va .opt.ok::after{content:"✓";margin-left:auto;font-weight:700;color:var(--good)}
+  .va .opt.no::after{content:"✕";margin-left:auto;font-weight:700;color:var(--bad)}
+  /* B Kompakt: volle Breite, Antworten zweispaltig */
+  .vb .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}.vb .qcard{padding:18px;gap:12px}.vb .qtext{font-size:1.15rem}
+  /* C Karte: Akzentstreifen, große Schrift */
+  .vc .qcard{max-width:820px;margin:auto;border-left:6px solid var(--accent)}.vc .qtext{font-size:1.6rem;line-height:1.25}.vc .opt{border-radius:999px;padding:12px 20px}
+  .groups{display:grid;gap:16px;max-width:720px;margin:auto}.groups h3{margin:0 0 6px;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+</style></head><body>
+<h1>Varianten: Fragekarte und Optionen (2026-11-12)</h1>
+<template id="q"><div class="qcard"><div class="head"><div class="qmeta"><span class="tag">Multiple Choice</span><span>Kapitel 2, Eindringverhalten</span></div>
+<button class="mark" aria-pressed="true" aria-label="Gemerkt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4z"/></svg></button></div>
+<div class="qtext">Welche Strahlung gibt ihre Energie im Bragg-Peak ab?</div>
+<div class="opts"><button class="opt"><span class="k">1</span><span>Röntgenstrahlung</span></button><button class="opt ok"><span class="k">2</span><span>Protonen</span></button><button class="opt no"><span class="k">3</span><span>Gammastrahlung</span></button><button class="opt"><span class="k">4</span><span>Elektronen</span></button></div></div></template>
+<section class="v va"><h2>A – Fokus (gewählt)</h2><p>Spalte 720 px wie Thea, Lesezeichen-Symbol statt Text, ✓/✕ an der Antwort. Optionen in 3 Gruppen.</p><div class="slot"></div>
+  <div class="groups"><div class="panel"><h3>Aussehen</h3>Erscheinungsbild · Animationen · Schriftgröße</div><div class="panel"><h3>Lernen</h3>Tagesziel · Lektionslänge · Behaltensrate · Warum-Fragen · Sicherheit · Erklärvideos</div><div class="panel"><h3>Daten</h3>Sichern · Laden · Zurücksetzen</div></div></section>
+<section class="v vb"><h2>B – Kompakt</h2><p>Volle Breite, Antworten zweispaltig, weniger Abstand. Viel auf einen Blick, aber unruhiger.</p><div class="slot"></div></section>
+<section class="v vc"><h2>C – Karte</h2><p>Akzentstreifen, sehr große Frage, runde Antworten. Auffällig, aber lange Antworten brechen unschön.</p><div class="slot"></div></section>
+<script>document.querySelectorAll('.slot').forEach(s => s.append(document.getElementById('q').content.cloneNode(true)));</script>
+<p class="muted">Entscheidung: A – ruhig und ADHS-freundlich (eine Spalte, kurze Zeilen ≈ 60–75 Zeichen), funktioniert auf Handy und PC gleich. B/C bleiben hier zum Vergleich.</p>
+</body></html>

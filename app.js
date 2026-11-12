@@ -7,6 +7,8 @@ const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { c
 const TYPES = { mc: 'Multiple Choice', tf: 'Richtig/Falsch', cloze: 'Lückentext', order: 'Reihenfolge', match: 'Zuordnen', open: 'Offene Frage' };
 const RECALL = { cloze: 0, open: 1, order: 2, match: 3, tf: 4, mc: 5 }; // Abruf vor Wiedererkennen
 const DAY = 864e5;
+let TBL = 0; // fortlaufende Tabellen-ids für headers=
+const BOOKMARK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>';
 const LEVEL = ['Neu', 'Versucht', 'Vertraut', 'Sicher', 'Gemeistert'];
 const dayKey = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } } };
@@ -119,7 +121,7 @@ function drawNav(view) {
   $('#tabs').innerHTML = html; $('#tabsMob').innerHTML = html; $('#tabsMob').hidden = !T;
   const p = $('#topicPill'); p.hidden = !T; if (T) { p.href = '#home'; p.title = 'Zur Bibliothek'; p.querySelector('span').textContent = T.title; }
   $('#optLink').toggleAttribute('aria-current', view === 'optionen');
-  const n = streak(); $('#streakPill').textContent = n + (n === 1 ? ' Tag' : ' Tage') + ' Serie'; $('#streakPill').title = 'Lernserie in Tagen. Ein Tag Pause pro Woche bricht sie nicht.';
+  const n = streak(); $('#streakPill').textContent = n + (n === 1 ? ' Tag' : ' Tage') + ' Serie'; $('#streakPill').classList.toggle('zero', !n); $('#streakPill').title = 'Lernserie in Tagen. Ein Tag Pause pro Woche bricht sie nicht.';
 }
 
 /* ---------- Navigation ---------- */
@@ -262,14 +264,25 @@ function blockHTML(b) {
   if (b.t === 'p') return `<p>${esc(b.text)}</p>`;
   if (b.t === 'ul') return `<ul>${b.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
   if (b.t === 'steps') return `<ol class="steps">${b.items.map(i => `<li><span>${esc(i)}</span></li>`).join('')}</ol>`;
-  if (b.t === 'table') return `<div class="tablewrap"><table>${b.head && b.head.length ? `<thead><tr>${b.head.map(h => `<th scope="col">${esc(h)}</th>`).join('')}</tr></thead>` : ''}<tbody>${b.rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  // Rollen explizit: Am Handy werden Tabellen mit Kopf als Karten gestapelt (display:block nimmt sonst die Tabellen-Semantik)
+  if (b.t === 'table') { const H = b.head && b.head.length ? b.head : null, R = H ? ' role="row"' : '', id = 'tb' + (++TBL);
+    return `<div class="tablewrap${H ? ' stack' : ''}"><table${H ? ' role="table"' : ''}>${H ? `<thead${H ? ' role="rowgroup"' : ''}><tr${R}>${H.map((h, j) => `<th scope="col" role="columnheader" id="${id}c${j}">${esc(h)}</th>`).join('')}</tr></thead>` : ''}<tbody${H ? ' role="rowgroup"' : ''}>${b.rows.map(r => `<tr${R}>${r.map((c, i) => H && i === 0 && !H[0].trim() ? `<th scope="row" role="rowheader">${esc(c)}</th>` : `<td${H ? ` role="cell" headers="${id}c${i}" data-l="${esc(H[i] || '')}"` : ''}>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; }
   if (b.t === 'merke') return `<div class="merke"><strong>Merke</strong>${esc(b.text)}</div>`;
   return '';
 }
 const linksHTML = (links, label = 'Zum Nachlesen') => links && links.length ? `<div class="links"><strong>${label}</strong><ul>${links.map(x => `<li><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a> <span class="muted">${esc(x.src || '')}</span></li>`).join('')}</ul></div>` : '';
+// Abbildungen aus den Unterrichtsfolien (bilder.js), lazy geladen; Tippen vergrößert
+const photosHTML = k => ((typeof IMG !== 'undefined' && IMG[T.slug] && IMG[T.slug][k]) || []).map(([src, cap, from, w, h]) =>
+  `<figure class="photo"><button class="zoom" data-zoom="${esc(src)}" aria-label="Abbildung vergrößern: ${esc(cap)}"><img src="${esc(src)}" alt="${esc(cap)}" width="${w}" height="${h}" loading="lazy" decoding="async"></button><figcaption class="cap">${esc(cap)} <span class="src">Quelle: ${esc(from)}</span></figcaption></figure>`).join('');
+function zoom(src, alt) {
+  const d = document.createElement('dialog'); d.className = 'zoombox';
+  d.innerHTML = `<img src="${esc(src)}" alt="${esc(alt)}"><button class="btn" autofocus>Schließen</button>`;
+  d.onclick = () => d.close(); d.onclose = () => d.remove(); document.body.append(d); d.showModal();
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-zoom]'); if (b) zoom(b.dataset.zoom, b.querySelector('img').alt); });
 function secHTML(chId, s, withRead = true) {
   const k = chId + '|' + s.id;
-  return `<article class="sec" id="s-${esc(s.id.replace(/\./g, '-'))}"><header><span class="id">${esc(/^[\d.]+$/.test(s.id) ? s.id : '')}</span><h3>${esc(s.title)}</h3>${withRead ? `<button class="btn sm read-toggle" aria-pressed="${!!S.read[k]}" data-readk="${esc(k)}">${S.read[k] ? 'Gelesen' : 'Als gelesen markieren'}</button>` : ''}</header>${s.blocks.map(blockHTML).join('')}${Object.keys(FIG).filter(k => FIG[k].topic === T.slug && FIG[k].ch === chId && FIG[k].sec === s.id).map(k => figHTML(k)).join('')}${linksHTML(s.links)}</article>`;
+  return `<article class="sec" id="s-${esc(s.id.replace(/\./g, '-'))}"><header><span class="id">${esc(/^[\d.]+$/.test(s.id) ? s.id : '')}</span><h3>${esc(s.title)}</h3>${withRead ? `<button class="btn sm read-toggle" aria-pressed="${!!S.read[k]}" data-readk="${esc(k)}">${S.read[k] ? 'Gelesen' : 'Als gelesen markieren'}</button>` : ''}</header>${s.blocks.map(blockHTML).join('')}${Object.keys(FIG).filter(k => FIG[k].topic === T.slug && FIG[k].ch === chId && FIG[k].sec === s.id).map(k => figHTML(k)).join('')}${photosHTML(k)}${linksHTML(s.links)}</article>`;
 }
 RENDER.lektion = el => {
   const l = LBY[LS.id], c = CHBY[l.ch];
@@ -405,7 +418,7 @@ function renderQ(box) {
   if (!R.state || R.state.id !== id || R.state.pos !== R.i) R.state = { id, pos: R.i, done: false, mcOrder: shuffle([0, 1, 2, 3]), seq: [], pool: q.type === 'order' ? shuffleNot(q.items.map((_, i) => i)) : null, right: q.type === 'match' ? shuffle(q.pairs.map((_, i) => i)) : null, pairs: {}, selL: null, txt: '', left: R.time, pend: null };
   const st = R.state, test = R.mode === 'test';
   box.innerHTML = `
-  <div class="qtop">${R.el === 'quiz' ? '<button class="btn sm ghost" id="quit">Beenden</button>' : ''}<div class="bar"><i style="width:${R.i / R.list.length * 100}%"></i></div><span class="num muted">${Math.min(R.i + 1, R.list.length)} / ${R.list.length}</span>${R.time ? `<span class="timer" id="timer">${st.left} s</span>` : ''}${R.mode === 'pre' ? '' : `<button class="btn sm ghost markbtn" id="mark" aria-pressed="${!!S.mark[id]}">${S.mark[id] ? 'Gemerkt' : 'Merken'}</button>`}</div>
+  <div class="qtop">${R.el === 'quiz' ? '<button class="btn sm ghost" id="quit">Beenden</button>' : ''}<div class="bar"><i style="width:${R.i / R.list.length * 100}%"></i></div><span class="num muted">${Math.min(R.i + 1, R.list.length)} / ${R.list.length}</span>${R.time ? `<span class="timer" id="timer">${st.left} s</span>` : ''}${R.mode === 'pre' ? '' : `<button class="markbtn" id="mark" aria-pressed="${!!S.mark[id]}" aria-label="Frage merken" title="Frage merken">${BOOKMARK}</button>`}</div>
   <div class="qcard"><div class="qmeta"><span class="tag">${TYPES[q.type]}</span><span>${esc(chName(c))}${sec ? ', ' + esc(sec.title) : ''}</span>${R.rep[id] ? '<span class="tag rep">Nochmal</span>' : ''}</div>
     ${q.type === 'cloze' ? '' : `<div class="qtext">${esc(q.q)}</div>`}${q.fig ? figHTML(q.fig, q.mark) : ''}<div id="qbody"></div><div id="fb"></div><div class="qactions" id="qact"></div></div>`;
   const body = $('#qbody', box), act = $('#qact', box), key = (i, t) => `<span class="k">${i}</span><span>${esc(t)}</span>`;
@@ -419,7 +432,7 @@ function renderQ(box) {
   box.onclick = e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.id === 'quit') return askQuit();
-    if (b.id === 'mark') { if (S.mark[id]) delete S.mark[id]; else S.mark[id] = 1; saveS(); b.setAttribute('aria-pressed', !!S.mark[id]); b.textContent = S.mark[id] ? 'Gemerkt' : 'Merken'; return toast(S.mark[id] ? 'Gemerkt – unter Üben als eigene Runde' : 'Nicht mehr gemerkt'); }
+    if (b.id === 'mark') { if (S.mark[id]) delete S.mark[id]; else S.mark[id] = 1; saveS(); b.setAttribute('aria-pressed', !!S.mark[id]); return toast(S.mark[id] ? 'Gemerkt – unter Üben als eigene Runde' : 'Nicht mehr gemerkt'); }
     if (b.id === 'quitNo') return $('#quitAsk').remove();
     if (b.id === 'quitYes') return endRun();
     if (b.id === 'next' || b.id === 'whyYes' || b.id === 'whyNo') return nextQ();
@@ -533,20 +546,25 @@ RENDER.statistik = el => {
 RENDER.optionen = el => {
   const seg = (k, vals) => `<div class="seg" data-key="${k}">${vals.map(([v, l]) => `<button aria-pressed="${G.opt[k] === v}" data-v="${v}">${l}</button>`).join('')}</div>`;
   el.innerHTML = `
+  <div class="opts-page">
   <h2>Optionen</h2>
-  <div class="panel opts-list">
-    <div class="opt-row"><div><h3>Erscheinungsbild</h3></div>${seg('theme', [['system', 'System'], ['light', 'Hell'], ['dark', 'Dunkel']])}</div>
-    <div class="opt-row"><div><h3>Animationen</h3></div>${seg('motion', [[true, 'An'], [false, 'Aus']])}</div>
-    <div class="opt-row"><div><h3>Schriftgröße</h3></div>${seg('big', [[false, 'Normal'], [true, 'Groß']])}</div>
-    <div class="opt-row"><div><h3>Sicherheit abfragen</h3><p class="muted">Nach Multiple Choice und Richtig/Falsch fragst du dich: sicher oder geraten? Sichere Fehler kommen früher wieder.</p></div>${seg('conf', [[false, 'Aus'], [true, 'An']])}</div>
-    <div class="opt-row"><div><h3>Ziel-Behaltensrate</h3><p class="muted">Wie sicher du eine Frage beim nächsten Abruf noch weißt. Höher heißt öfter wiederholen. Empfohlen: 90&nbsp;%.</p></div>${seg('ret', [[.8, '80 %'], [.85, '85 %'], [.9, '90 %'], [.95, '95 %']])}</div>
-    <div class="opt-row"><div><h3>Warum-Fragen</h3><p class="muted">Nach einer richtigen Antwort erklärst du in einem Satz, warum, und vergleichst mit der Musterlösung. Das festigt Verständnis.</p></div>${seg('why', [[true, 'An'], [false, 'Aus']])}</div>
-    <div class="opt-row"><div><h3>Tagesziel</h3><p class="muted">Wie viele Fragen du dir pro Tag vornimmst, über alle Themen. Der Lernpfad zeigt, wie weit du bist.</p></div>${seg('goal', [[0, 'Aus'], [10, '10'], [20, '20'], [40, '40']])}</div>
-    <div class="opt-row"><div><h3>Lektionslänge</h3><p class="muted">Abfragefragen pro Lektion. Kurz passt, wenn du wenig Zeit oder Konzentration hast; mehrere kurze Einheiten über den Tag behältst du besser als eine lange.</p></div>${seg('len', [[4, 'Kurz'], [6, 'Normal'], [10, 'Lang']])}</div>
-    <div class="opt-row"><div><h3>Erklärvideos</h3><p class="muted">Im Lesen pro Kapitel ein Link zur YouTube-Suche. Fremde Videos sind nicht geprüft, im Zweifel gilt der Stoff hier.</p></div>${seg('vid', [[false, 'Aus'], [true, 'An']])}</div>
-    <div class="opt-row"><div><h3>Fortschritt sichern</h3><p class="muted">Dein Lernstand liegt nur in diesem Browser. Als Datei sichern und auf einem anderen Gerät laden.</p></div><div class="row"><button class="btn" id="exp">Sichern</button><button class="btn" id="impBtn">Laden</button><input type="file" id="imp" accept="application/json" hidden></div></div>
-    <div class="opt-row"><div><h3>Alles zurücksetzen</h3><p class="muted">Löscht Fortschritt in allen Themen auf diesem Gerät.</p></div><div class="row" id="resetBox"><button class="btn" id="reset1">Zurücksetzen</button></div></div>
-  </div>`;
+  <section class="panel opts-list" aria-labelledby="og1"><h3 class="ogroup" id="og1">Aussehen</h3>
+    <div class="opt-row"><div><h4>Erscheinungsbild</h4></div>${seg('theme', [['system', 'System'], ['light', 'Hell'], ['dark', 'Dunkel']])}</div>
+    <div class="opt-row"><div><h4>Animationen</h4></div>${seg('motion', [[true, 'An'], [false, 'Aus']])}</div>
+    <div class="opt-row"><div><h4>Schriftgröße</h4></div>${seg('big', [[false, 'Normal'], [true, 'Groß']])}</div>
+  </section>
+  <section class="panel opts-list" aria-labelledby="og2"><h3 class="ogroup" id="og2">Lernen</h3>
+    <div class="opt-row"><div><h4>Tagesziel</h4><p class="muted">Fragen pro Tag, über alle Themen. Der Lernpfad zeigt den Stand.</p></div>${seg('goal', [[0, 'Aus'], [10, '10'], [20, '20'], [40, '40']])}</div>
+    <div class="opt-row"><div><h4>Lektionslänge</h4><p class="muted">Abfragefragen pro Lektion. Mehrere kurze Einheiten am Tag behältst du besser als eine lange.</p></div>${seg('len', [[4, 'Kurz'], [6, 'Normal'], [10, 'Lang']])}</div>
+    <div class="opt-row"><div><h4>Warum-Fragen</h4><p class="muted">Nach richtiger Antwort in einem Satz begründen, dann mit der Musterlösung vergleichen.</p></div>${seg('why', [[true, 'An'], [false, 'Aus']])}</div>
+    <div class="opt-row"><div><h4>Sicherheit abfragen</h4><p class="muted">Sicher oder geraten? Sichere Fehler kommen früher wieder.</p></div>${seg('conf', [[false, 'Aus'], [true, 'An']])}</div>
+    <div class="opt-row"><div><h4>Ziel-Behaltensrate</h4><p class="muted">Höher heißt öfter wiederholen. Empfohlen: 90&nbsp;%.</p></div>${seg('ret', [[.8, '80 %'], [.85, '85 %'], [.9, '90 %'], [.95, '95 %']])}</div>
+    <div class="opt-row"><div><h4>Erklärvideos</h4><p class="muted">Pro Kapitel ein Link zur YouTube-Suche. Fremde Videos sind nicht geprüft.</p></div>${seg('vid', [[false, 'Aus'], [true, 'An']])}</div>
+  </section>
+  <section class="panel opts-list" aria-labelledby="og3"><h3 class="ogroup" id="og3">Daten</h3>
+    <div class="opt-row"><div><h4>Fortschritt sichern</h4><p class="muted">Dein Lernstand liegt nur in diesem Browser. Als Datei sichern und anderswo laden.</p></div><div class="row"><button class="btn" id="exp">Sichern</button><button class="btn" id="impBtn">Laden</button><input type="file" id="imp" accept="application/json" hidden></div></div>
+    <div class="opt-row"><div><h4>Alles zurücksetzen</h4><p class="muted">Löscht den Fortschritt in allen Themen auf diesem Gerät.</p></div><div class="row" id="resetBox"><button class="btn" id="reset1">Zurücksetzen</button></div></div>
+  </section></div>`;
   el.onclick = e => {
     const b = e.target.closest('button'); if (!b) return; const seg = b.closest('[data-key]');
     if (seg) { const k = seg.dataset.key, v = b.dataset.v; G.opt[k] = v === 'true' ? true : v === 'false' ? false : isNaN(+v) ? v : +v; saveG(); applyOpt(); RENDER.optionen(el); toast('Gespeichert'); }
@@ -561,6 +579,7 @@ RENDER.optionen = el => {
 
 /* ---------- Tastatur ---------- */
 document.addEventListener('keydown', e => {
+  if (document.querySelector('dialog[open]')) return; // Esc schließt nur die Vergrößerung
   if (e.key === 'Escape' && !e.target.matches('input[type=search],input[type=date]')) { e.preventDefault(); if (e.target.matches('input,textarea')) return e.target.blur(); return back(); } // im Eingabefeld: erst Feld verlassen, zweites Esc = zurück
   if (e.target.matches('input,textarea') && e.key !== 'Enter') return;
   if (current === 'karten') { if (e.key === ' ') { e.preventDefault(); flip(); } if (K.flipped && /^[1-4]$/.test(e.key)) rateCard(+e.key - 1); return; }
