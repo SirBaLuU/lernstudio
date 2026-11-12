@@ -1,3 +1,8 @@
+/* Schriften lokal (OFL, siehe fonts/LIZENZ.txt), font-display: swap */
+@font-face{font-family:"Atkinson Hyperlegible";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/atkinson-400.woff2) format("woff2")}
+@font-face{font-family:"Atkinson Hyperlegible";font-style:normal;font-weight:700;font-display:swap;src:url(fonts/atkinson-700.woff2) format("woff2")}
+@font-face{font-family:"Atkinson Hyperlegible";font-style:italic;font-weight:400;font-display:swap;src:url(fonts/atkinson-400i.woff2) format("woff2")}
+@font-face{font-family:"Bricolage Grotesque";font-style:normal;font-weight:200 800;font-display:swap;src:url(fonts/bricolage.woff2) format("woff2")}
 
 /* Layout: Lernstudio wie ein Bestrahlungs-Leitstand – ruhige Bleiglas-Flächen, Cherenkov-Blau als einzige Akzentfarbe, Dosis-Amber nur für Fortschritt */
 :root{
@@ -137,7 +142,7 @@ th,td{text-align:left;padding:9px 12px;vertical-align:top;border-bottom:1px soli
 th{background:var(--sunk);font-weight:700}
 tr:last-child td{border-bottom:0}
 .merke{border-left:4px solid var(--dose);background:var(--dose-soft);border-radius:0 var(--r-md) var(--r-md) 0;padding:12px 16px}
-.merke strong{color:var(--dose);display:block;font-size:.85rem}
+.merke strong{color:color-mix(in srgb,var(--dose) 60%,var(--ink));display:block;font-size:.85rem}
 mark{background:var(--dose-soft);color:inherit;border-radius:3px;padding:0 2px}
 .read-toggle[aria-pressed="true"]{background:var(--good-soft);border-color:var(--good);color:var(--good)}
 .hits{display:grid;gap:8px}
@@ -262,7 +267,7 @@ nav.tabs.mob{background:color-mix(in srgb,var(--surface) 82%,transparent);-webki
 .topic::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 100% 0%,color-mix(in srgb,var(--tc) 26%,transparent),transparent 60%);pointer-events:none}
 .topic:hover{transform:translateY(-3px) scale(1.01)}
 .topic>*{position:relative}
-.topic .fach{font-weight:700;color:var(--tc);font-size:.92rem}
+.topic .fach{font-weight:700;color:color-mix(in srgb,var(--tc) 60%,var(--ink));font-size:.92rem}
 .topic h2{font-size:clamp(1.7rem,3.4vw,2.2rem)}
 .topic p{color:var(--muted)}
 .topic .foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:auto;font-size:.9rem;color:var(--muted)}
@@ -350,3 +355,4 @@ input[type=date]{border:1px solid var(--line);border-radius:12px;padding:8px 10p
 .flash{touch-action:pan-y}
 .swipe-hint{font-size:.85rem;text-align:center}
 @media (hover:hover) and (pointer:fine){.swipe-hint{display:none}}
+.path-ch{content-visibility:auto;contain-intrinsic-size:auto 600px} /* Kapitel außerhalb des Bildschirms erst bei Bedarf layouten */

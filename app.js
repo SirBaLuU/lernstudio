@@ -124,7 +124,7 @@ function drawCrumbs(r) {
 }
 async function route() {
   const r = parse();
-  try { await loadIndex(); if (r.slug && (!T || T.slug !== r.slug)) { show('home'); $('#v-home').innerHTML = '<div class="loading">Lade Thema …</div>'; await loadTopic(r.slug); } }
+  try { const need = r.slug && (!T || T.slug !== r.slug); if (need) { show('home'); $('#v-home').innerHTML = '<div class="loading">Lade Thema …</div>'; } await Promise.all([loadIndex(), need && loadTopic(r.slug)]); }
   catch (e) { toast('Thema konnte nicht geladen werden.'); if (r.slug) return go('home'); }
   if (r.view === 'lektion' && !LS) return goReplace(T.slug + '/start');
   if (r.view === 'lektion' && r.sub !== LS.stage) { // Zurück/Vor innerhalb der Lektion, Antworten bleiben gespeichert
@@ -234,7 +234,7 @@ function blockHTML(b) {
   if (b.t === 'p') return `<p>${esc(b.text)}</p>`;
   if (b.t === 'ul') return `<ul>${b.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
   if (b.t === 'steps') return `<ol class="steps">${b.items.map(i => `<li><span>${esc(i)}</span></li>`).join('')}</ol>`;
-  if (b.t === 'table') return `<div class="tablewrap"><table><thead><tr>${(b.head || []).map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${b.rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  if (b.t === 'table') return `<div class="tablewrap"><table>${b.head && b.head.length ? `<thead><tr>${b.head.map(h => `<th scope="col">${esc(h)}</th>`).join('')}</tr></thead>` : ''}<tbody>${b.rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   if (b.t === 'merke') return `<div class="merke"><strong>Merke</strong>${esc(b.text)}</div>`;
   return '';
 }

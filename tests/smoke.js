@@ -19,7 +19,7 @@ async function answerCurrent(p, right = true) {
   for (const [w, h, scheme] of [[1280, 860, 'light'], [390, 844, 'dark']]) {
     const p = await b.newPage({ viewport: { width: w, height: h }, colorScheme: scheme });
     p.on('pageerror', e => errs.push(w + ' ' + e.message));
-    p.on('console', m => m.type() === 'error' && !/fonts|TUNNEL/.test(m.text()) && errs.push(w + ' console ' + m.text()));
+    p.on('console', m => m.type() === 'error' && !/TUNNEL/.test(m.text()) && errs.push(w + ' console ' + m.text()));
     await p.goto(BASE); await p.waitForTimeout(800);
     await p.screenshot({ path: OUT + `home_${w}.png`, fullPage: w === 1280 });
     for (const slug of ['strahlentherapie', 'chromatographie']) {
@@ -123,6 +123,30 @@ async function answerCurrent(p, right = true) {
     await p.mouse.move(bx.x + bx.width * .7, y); await p.mouse.down(); await p.mouse.move(bx.x + bx.width * .4, y, { steps: 6 }); await p.mouse.move(bx.x + bx.width * .2, y, { steps: 6 }); await p.mouse.up(); await p.waitForTimeout(500);
     const after = await p.evaluate(id => ({ first: K.list[0], flipped: K.flipped, rated: !!S.q[id], again: K.list.includes(id) }), id0);
     if (!after.rated || after.first === id0 || after.flipped || !after.again) E('Wischen links ' + JSON.stringify(after));
+    await p.close();
+  }
+  // Kontrast hell und dunkel ≥ 4,5:1 (große Schrift 3:1), alle Hauptansichten (Aufgabe 3)
+  for (const scheme of ['dark', 'light']) {
+    const p = await b.newPage({ viewport: { width: 390, height: 844 }, colorScheme: scheme });
+    await p.goto(BASE + '#strahlentherapie/start'); await p.waitForTimeout(3000);
+    for (const h of ['home', 'strahlentherapie/start', 'strahlentherapie/lernen', 'strahlentherapie/karten', 'strahlentherapie/quiz', 'strahlentherapie/statistik', 'optionen']) {
+      await p.evaluate(h => go(h), h); await p.waitForTimeout(1300);
+      const bad = await p.evaluate(() => {
+      const rgb = s => { const m = (s.match(/[\d.]+/g) || [0, 0, 0, 0]).map(Number); if (s.startsWith('color(')) { const [r, g, b, a] = m; return [r * 255, g * 255, b * 255, a ?? 1]; } return m; };
+      const lum = ([r, g, b]) => { const f = c => (c /= 255) <= .03928 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4; return .2126 * f(r) + .7152 * f(g) + .0722 * f(b); };
+      const bgOf = e => { for (; e; e = e.parentElement) { const c = rgb(getComputedStyle(e).backgroundColor); if (c.length < 4 || c[3] > .9) return c; } return [255, 255, 255]; };
+      const out = [];
+      document.querySelectorAll('.view:not([hidden]) *, #crumbs *, header *').forEach(e => {
+        if (![...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) return; if (!e.getBoundingClientRect().width || e.closest('[hidden]')) return;
+        const cs = getComputedStyle(e); if (cs.backgroundImage !== 'none') return; const fg = rgb(cs.color), bg = bgOf(e);
+        const a = fg[3] ?? 1; const mix = fg.slice(0, 3).map((c, i) => c * a + bg[i] * (1 - a));
+        const L1 = lum(mix), L2 = lum(bg), r = (Math.max(L1, L2) + .05) / (Math.min(L1, L2) + .05);
+        const big = parseFloat(cs.fontSize) >= 24 || (parseFloat(cs.fontSize) >= 18.6 && +cs.fontWeight >= 700);
+        if (r < (big ? 3 : 4.5)) out.push(`${r.toFixed(2)} ${e.tagName}.${e.className} "${e.textContent.trim().slice(0, 25)}"`);
+      }); return out;
+    });
+      bad.slice(0, 3).forEach(x => errs.push(`Kontrast ${scheme} ${h}: ${x}`));
+    }
     await p.close();
   }
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'OK');
