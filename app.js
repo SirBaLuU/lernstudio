@@ -102,18 +102,44 @@ function drawNav(view) {
 /* ---------- Navigation ---------- */
 let current = '';
 let WANT = location.hash.slice(1);
-function parse() { const h = decodeURIComponent(WANT); if (!h || h === 'home') return { view: 'home' }; if (h === 'optionen') return { view: 'optionen' }; const [slug, v] = h.split('/'); return { slug, view: ['start', 'lektion', 'lernen', 'karten', 'quiz', 'statistik'].includes(v) ? v : 'start' }; }
+let SUB = ''; // Unteransicht: Lektionsstufe bzw. quiz run/ergebnis
+function parse() { const h = decodeURIComponent(WANT); if (!h || h === 'home') return { view: 'home' }; if (h === 'optionen') return { view: 'optionen' }; const [slug, v, sub] = h.split('/'); return { slug, sub: sub || '', view: ['start', 'lektion', 'lernen', 'karten', 'quiz', 'statistik'].includes(v) ? v : 'start' }; }
 function go(path) { WANT = path; let moved = false; try { if (location.hash !== '#' + path) { location.hash = path; moved = location.hash === '#' + path; } } catch (e) { } if (!moved) route(); }
+function goReplace(path) { WANT = path; try { history.replaceState({ i: HI }, '', '#' + path); } catch (e) { } route(); } // Zwischenstufen nicht in den Verlauf
 const tgo = v => go(T.slug + '/' + v);
+// Verlaufsindex: HI > 0 heißt, „Zurück“ bleibt in der App
+let HI = 0;
+function stamp(first) { const s = history.state; if (s && typeof s.i === 'number') HI = s.i; else { HI = first ? 0 : HI + 1; try { history.replaceState({ i: HI }, ''); } catch (e) { } } }
+function parentPath() { const r = parse(); if (r.view === 'home') return 'home'; if (r.view === 'optionen') return T ? T.slug + '/start' : 'home'; if (r.view === 'start') return 'home'; if (r.view === 'quiz' && r.sub) return r.slug + '/quiz'; return r.slug + '/start'; }
+function back() { if (askQuit()) return; if (HI > 0) history.back(); else go(parentPath()); }
+const VNAME = { lernen: 'Lesen', karten: 'Karteikarten', quiz: 'Üben', statistik: 'Statistik', lektion: 'Lektion' };
+function drawCrumbs(r) {
+  const el = $('#crumbs'); el.hidden = r.view === 'home'; if (el.hidden) return;
+  const parts = [`<a href="#home">Bibliothek</a>`];
+  if (T && r.view !== 'optionen') parts.push(r.view === 'start' ? `<span aria-current="page">${esc(T.title)}</span>` : `<a href="#${esc(T.slug)}/start">${esc(T.title)}</a>`);
+  if (r.view === 'optionen') parts.push('<span aria-current="page">Optionen</span>');
+  else if (r.view !== 'start') parts.push(`<span aria-current="page">${VNAME[r.view]}${r.view === 'quiz' && r.sub === 'ergebnis' ? ': Ergebnis' : r.view === 'quiz' && r.sub === 'run' ? ': Runde' : ''}</span>`);
+  el.innerHTML = `<button class="btn sm ghost" id="back" aria-label="Zurück"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>Zurück</span></button><ol>${parts.map(p => `<li>${p}</li>`).join('')}</ol>`;
+  $('#back', el).onclick = back;
+}
 async function route() {
   const r = parse();
   try { await loadIndex(); if (r.slug && (!T || T.slug !== r.slug)) { show('home'); $('#v-home').innerHTML = '<div class="loading">Lade Thema …</div>'; await loadTopic(r.slug); } }
   catch (e) { toast('Thema konnte nicht geladen werden.'); if (r.slug) return go('home'); }
-  if (r.view === 'lektion' && !LS) return tgo('start');
-  const draw = () => { show(r.view); RENDER[r.view]($('#v-' + r.view)); drawNav(r.view); };
+  if (r.view === 'lektion' && !LS) return goReplace(T.slug + '/start');
+  if (r.view === 'lektion' && r.sub !== LS.stage) { // Zurück/Vor innerhalb der Lektion, Antworten bleiben gespeichert
+    if (r.sub === 'read' && LS.stage !== 'pre') LS.stage = 'read';
+    else if (r.sub === 'quiz' && LS.run && !LS.run.done) LS.stage = 'quiz';
+    else return goReplace(T.slug + '/lektion/' + LS.stage);
+  }
+  if (r.view === 'quiz' && r.sub === 'run' && !(R && R.el === 'quiz')) return goReplace(T.slug + '/quiz');
+  if (r.view === 'quiz' && r.sub === 'run' && R.done) return goReplace(T.slug + '/quiz/ergebnis');
+  if (r.view === 'quiz' && r.sub === 'ergebnis' && !(R && R.el === 'quiz' && R.done)) return goReplace(T.slug + '/quiz');
+  SUB = r.sub || '';
+  const draw = () => { show(r.view); RENDER[r.view]($('#v-' + r.view)); drawNav(r.view); drawCrumbs(r); };
   if (current && current !== r.view && document.startViewTransition && motionOK()) document.startViewTransition(draw); else draw();
-  if (current !== r.view) window.scrollTo(0, 0);
-  current = r.view;
+  if (current !== r.view || route.sub !== SUB) window.scrollTo(0, 0);
+  current = r.view; route.sub = SUB;
 }
 function show(v) { document.querySelectorAll('.view').forEach(el => el.hidden = el.id !== 'v-' + v); }
 const RENDER = {};
@@ -201,8 +227,8 @@ function startLesson(id) {
   const pre = shuffle(qs.filter(q => q.type === 'tf' || q.type === 'mc')).slice(0, 2).map(q => q.id);
   const main = qs.filter(q => !pre.includes(q.id)).sort((a, b) => (mastered(a.id) - mastered(b.id)) || (RECALL[a.type] - RECALL[b.type])).slice(0, 6).map(q => q.id);
   LS = { id, stage: pre.length ? 'pre' : 'read', pre, main: main.length ? main : pre };
-  if (LS.stage === 'pre') R = newRun({ ids: pre, mode: 'pre', el: 'lektion', onDone: () => { LS.stage = 'read'; R = null; RENDER.lektion($('#v-lektion')); } });
-  tgo('lektion');
+  if (LS.stage === 'pre') LS.preRun = R = newRun({ ids: pre, mode: 'pre', el: 'lektion', onDone: () => { LS.stage = 'read'; R = null; goReplace(T.slug + '/lektion/read'); } });
+  tgo('lektion/' + LS.stage);
 }
 function blockHTML(b) {
   if (b.t === 'p') return `<p>${esc(b.text)}</p>`;
@@ -220,9 +246,9 @@ function secHTML(chId, s, withRead = true) {
 RENDER.lektion = el => {
   const l = LBY[LS.id], c = CHBY[l.ch];
   const steps = ['Vortest', 'Lesen', 'Abfrage'], idx = { pre: 0, read: 1, quiz: 2, done: 3 }[LS.stage];
-  const head = `<div class="lesson-head"><button class="btn sm ghost" id="lback">Zum Lernpfad</button><ol class="stepper">${steps.map((s, i) => `<li class="${i < idx ? 'done' : i === idx ? 'on' : ''}">${s}</li>`).join('')}</ol></div>
+  const head = `<div class="lesson-head"><span></span><ol class="stepper">${steps.map((s, i) => `<li class="${i < idx ? 'done' : i === idx ? 'on' : ''}">${s}</li>`).join('')}</ol></div>
     <div><span class="fach-label">${esc(chName(c))}</span><h2>${esc(l.title)}</h2></div>`;
-  if (LS.stage === 'pre' || LS.stage === 'quiz') { el.innerHTML = head + '<div id="runbox"></div>' + (LS.stage === 'pre' ? '<p class="muted">Vortest: einfach raten, das zählt nicht. Es macht dein Gehirn neugierig auf die Antwort.</p>' : ''); renderQ($('#runbox', el)); }
+  if (LS.stage === 'pre' || LS.stage === 'quiz') { R = LS.stage === 'pre' ? LS.preRun : LS.run; el.innerHTML = head + '<div id="runbox"></div>' + (LS.stage === 'pre' ? '<p class="muted">Vortest: einfach raten, das zählt nicht. Es macht dein Gehirn neugierig auf die Antwort.</p>' : ''); renderQ($('#runbox', el)); }
   if (LS.stage === 'read') {
     el.innerHTML = head + `<div class="content">${l.secs.map(sid => secHTML(c.id, SEC[c.id + '|' + sid], false)).join('')}</div><div class="qactions"><span class="muted">Fertig? Dann frag ich dich ab, ohne dass du nachsiehst.</span><button class="btn primary big" id="toQuiz">Zur Abfrage</button></div>`;
   }
@@ -235,7 +261,7 @@ RENDER.lektion = el => {
   el.onclick = e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.id === 'lback' || b.id === 'lback2') { R = null; LS = null; tgo('start'); }
-    if (b.id === 'toQuiz') { l.secs.forEach(sid => S.read[c.id + '|' + sid] = true); saveS(); if (!LS.main.length) { S.done[l.id] = true; saveS(); LS.stage = 'done'; return RENDER.lektion(el); } LS.stage = 'quiz'; R = newRun({ ids: LS.main, mode: 'ueben', el: 'lektion', onDone: () => { S.done[l.id] = true; saveS(); LS.stage = 'done'; R = null; RENDER.lektion(el); } }); RENDER.lektion(el); window.scrollTo(0, 0); }
+    if (b.id === 'toQuiz') { l.secs.forEach(sid => S.read[c.id + '|' + sid] = true); saveS(); if (!LS.main.length) { S.done[l.id] = true; saveS(); LS.stage = 'done'; return goReplace(T.slug + '/lektion/done'); } LS.stage = 'quiz'; if (!LS.run || LS.run.done) LS.run = newRun({ ids: LS.main, mode: 'ueben', el: 'lektion', onDone: () => { S.done[l.id] = true; saveS(); LS.stage = 'done'; R = null; goReplace(T.slug + '/lektion/done'); } }); tgo('lektion/quiz'); }
   };
 };
 
@@ -300,12 +326,13 @@ const QS = { chapters: null, types: Object.keys(TYPES), count: 10, mode: 'ueben'
 let R = null;
 const poolFor = o => Q.filter(q => o.chapters.includes(q.ch) && o.types.includes(q.type) && (!o.weak || (S.q[q.id] && !S.q[q.id].ok)));
 function newRun(o) { return { list: o.ids.slice(), i: 0, mode: o.mode, time: o.time || 0, first: {}, rep: {}, t0: Date.now(), state: null, el: o.el || 'quiz', onDone: o.onDone, title: o.title || '' }; }
-function startSession(o) { if (!o.ids.length) return toast('Keine Fragen für diese Auswahl.'); R = newRun(o); LS = null; tgo('quiz'); }
-RENDER.quiz = el => { if (!QS.chapters || !QS.chapters.every(c => CHBY[c])) QS.chapters = CH.map(c => c.id); if (R && R.el === 'quiz') { if (R.done) return renderResult(el); el.onclick = null; el.innerHTML = '<div id="runbox"></div>'; return renderQ($('#runbox', el)); } renderSetup(el); };
+function startSession(o) { if (!o.ids.length) return toast('Keine Fragen für diese Auswahl.'); R = newRun(o); LS = null; tgo('quiz/run'); }
+RENDER.quiz = el => { if (!QS.chapters || !QS.chapters.every(c => CHBY[c])) QS.chapters = CH.map(c => c.id); if (SUB === 'ergebnis' && R && R.done) return renderResult(el); if (SUB === 'run' && R && R.el === 'quiz' && !R.done) { el.onclick = null; el.innerHTML = '<div id="runbox"></div>'; return renderQ($('#runbox', el)); } renderSetup(el); };
 function renderSetup(el) {
   const n = poolFor(QS).length;
   const seg = (k, vals) => `<div class="seg" data-key="${k}">${vals.map(([v, l]) => `<button aria-pressed="${QS[k] === v}" data-v="${v}">${l}</button>`).join('')}</div>`;
   el.innerHTML = `
+  ${R && R.el === 'quiz' && !R.done ? `<div class="panel resume"><span><strong>${esc(R.title)}</strong> läuft noch: Frage ${R.i + 1} von ${R.list.length}.</span><button class="btn primary" id="resume">Fortsetzen</button></div>` : ''}
   <div class="section-head"><div><h2>Frei üben</h2><p class="muted">Für den Alltag reicht „Weiterlernen“ im Lernpfad. Hier stellst du dir eine eigene Runde oder eine Testsimulation zusammen.</p></div></div>
   <div class="panel setup">
     <div><span class="label">Kapitel</span><div class="chips" data-multi="chapters">${CH.map(c => `<button class="chip" aria-pressed="${QS.chapters.includes(c.id)}" data-v="${c.id}">${esc(chName(c))}</button>`).join('')}</div></div>
@@ -321,6 +348,7 @@ function renderSetup(el) {
   el.onclick = e => { const b = e.target.closest('button'); if (!b) return; const multi = b.closest('[data-multi]'), seg = b.closest('[data-key]');
     if (multi) { const k = multi.dataset.multi, v = b.dataset.v; QS[k] = QS[k].includes(v) ? QS[k].filter(x => x !== v) : QS[k].concat(v); if (!QS[k].length) QS[k] = [v]; }
     else if (seg) { const k = seg.dataset.key; QS[k] = isNaN(+b.dataset.v) ? b.dataset.v : +b.dataset.v; }
+    else if (b.id === 'resume') return tgo('quiz/run');
     else if (b.id === 'weak') QS.weak = !QS.weak;
     else if (b.id === 'go') return startSession({ ids: pick(poolFor(QS), QS.count), mode: QS.mode, time: QS.time, title: QS.mode === 'test' ? 'Testsimulation' : 'Übungsrunde' });
     renderSetup(el); };
@@ -351,7 +379,9 @@ function renderQ(box) {
   if (R.time) timerId = setInterval(() => { if (st.done) return clearInterval(timerId); st.left--; const t = $('#timer'); if (t) { t.textContent = st.left + ' s'; t.classList.toggle('low', st.left <= 5); } if (st.left <= 0) { clearInterval(timerId); finishQ(box, 0, 'Zeit abgelaufen'); } }, 1000);
   box.onclick = e => {
     const b = e.target.closest('button'); if (!b) return;
-    if (b.id === 'quit') { clearInterval(timerId); if (Object.keys(R.first).length) { R.done = true; renderResult($('#v-quiz')); } else { R = null; renderSetup($('#v-quiz')); } return; }
+    if (b.id === 'quit') return askQuit();
+    if (b.id === 'quitNo') return $('#quitAsk').remove();
+    if (b.id === 'quitYes') return endRun();
     if (b.id === 'next') return nextQ();
     if (b.dataset.look) { L.ch = q.ch; L.focus = q.sec; L.q = ''; return tgo('lernen'); }
     if (b.dataset.conf) { const p = st.pend; st.pend = null; return choose(box, q, p.b, p.ok, p.right, p.given, b.dataset.conf === '1'); }
@@ -397,7 +427,7 @@ function finishQ(box, score, given, self) {
   if (test && q.type !== 'open') setTimeout(() => { if (R && R.state === st) nextQ(); }, 350);
   else setTimeout(() => { const n = $('#next', box); n && n.focus({ preventScroll: true }); }, 20);
 }
-function nextQ() { R.i++; if (R.i >= R.list.length) { R.done = true; if (R.onDone) return R.onDone(); } RENDER[R.el]($('#v-' + R.el)); window.scrollTo({ top: 0 }); }
+function nextQ() { R.i++; if (R.i >= R.list.length) { R.done = true; if (R.onDone) return R.onDone(); return goReplace(T.slug + '/quiz/ergebnis'); } RENDER[R.el]($('#v-' + R.el)); window.scrollTo({ top: 0 }); }
 const grade = p => p >= .89 ? [1, 'Sehr gut'] : p >= .76 ? [2, 'Gut'] : p >= .63 ? [3, 'Befriedigend'] : p >= .5 ? [4, 'Genügend'] : [5, 'Nicht genügend'];
 function renderResult(el) {
   clearInterval(timerId);
@@ -406,12 +436,20 @@ function renderResult(el) {
   <div class="panel result">${ringSVG(p, 'richtig')}
     <div style="display:grid;gap:12px"><h2>${R.title}: ${p >= .89 ? 'ausgezeichnet' : p >= .63 ? 'gut gemacht' : 'dranbleiben'}</h2>
       ${R.mode === 'test' ? `<p class="grade">Note ${g}: ${gt} <span class="muted" style="font-size:.9rem;font-weight:400;font-family:var(--body)">(Richtwert)</span></p>` : ''}
-      <p class="muted num">${n} Fragen, ${ids.filter(i => R.first[i].score >= 1).length} richtig, ${wrong.length} mit Fehlern, etwa ${Math.max(1, Math.round((Date.now() - R.t0) / 60000))} min</p>
+      <p class="muted num">${n} ${n === 1 ? 'Frage' : 'Fragen'}, ${ids.filter(i => R.first[i].score >= 1).length} richtig, ${wrong.length} mit Fehlern, etwa ${Math.max(1, Math.round((Date.now() - R.t0) / 60000))} min</p>
       <div class="row">${wrong.length ? `<button class="btn primary" id="again">${wrong.length} Fehler nochmal</button>` : ''}<button class="btn" id="newq">Neue Runde</button><button class="btn ghost" id="toPath">Zum Lernpfad</button></div></div></div>
   ${wrong.length ? `<h3>Das solltest du dir nochmal ansehen</h3><div class="review">${wrong.map(id => { const q = QBY[id], f = R.first[id]; return `<details class="rv"><summary><span class="dot" style="background:${f.score > 0 ? 'var(--part)' : 'var(--bad)'}"></span><span>${esc(q.q)}</span></summary><div><p><strong>Deine Antwort:</strong> ${esc(f.given)}</p><p><strong>Lösung:</strong> ${esc(correctText(q))}</p>${q.explain ? `<p class="muted">${esc(q.explain)}</p>` : ''}</div></details>`; }).join('')}</div>` : ''}`;
   ringGo(el); if (p >= .76 && !R.cel) { R.cel = true; confetti(); }
-  el.onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.id === 'again') startSession({ ids: shuffle(wrong), mode: 'ueben', title: 'Fehlerrunde' }); if (b.id === 'newq') { R = null; renderSetup(el); } if (b.id === 'toPath') { R = null; tgo('start'); } };
+  el.onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.id === 'again') startSession({ ids: shuffle(wrong), mode: 'ueben', title: 'Fehlerrunde' }); if (b.id === 'newq') { R = null; tgo('quiz'); } if (b.id === 'toPath') { R = null; tgo('start'); } };
 }
+// Runde abbrechen: Nachfrage in der Seite statt confirm()
+function askQuit() {
+  if (current !== 'quiz' || SUB !== 'run' || !R || R.done) return false;
+  const a = $('#quitAsk'); if (a) { a.remove(); return true; }
+  $('#v-quiz .qtop').insertAdjacentHTML('afterend', `<div class="panel quit-ask" id="quitAsk" role="alertdialog" aria-labelledby="quitT"><span id="quitT">Runde beenden? Deine bisherigen Antworten bleiben gespeichert.</span><div class="row"><button class="btn" id="quitNo">Weiter üben</button><button class="btn danger" id="quitYes">Beenden</button></div></div>`);
+  $('#quitNo').focus(); return true;
+}
+function endRun() { clearInterval(timerId); if (Object.keys(R.first).length) { R.done = true; goReplace(T.slug + '/quiz/ergebnis'); } else { R = null; goReplace(T.slug + '/quiz'); } }
 function confetti() {
   if (!motionOK()) return; const cv = document.createElement('canvas'); cv.id = 'fx'; document.body.appendChild(cv); const x = cv.getContext('2d'), dpr = devicePixelRatio || 1;
   const W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr; cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
@@ -467,6 +505,7 @@ RENDER.optionen = el => {
 
 /* ---------- Tastatur ---------- */
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !e.target.matches('input[type=search],input[type=date]')) { e.preventDefault(); return back(); }
   if (e.target.matches('input,textarea') && e.key !== 'Enter') return;
   if (current === 'karten') { if (e.key === ' ') { e.preventDefault(); flip(); } if (K.flipped && /^[1-4]$/.test(e.key)) rateCard(+e.key - 1); return; }
   if (!R || R.done) return; const box = $('#v-' + R.el); if (!box || box.hidden) return;
@@ -474,5 +513,5 @@ document.addEventListener('keydown', e => {
   if (/^[1-4]$/.test(e.key)) { const o = box.querySelectorAll('.opts .opt, .tf .opt')[+e.key - 1]; if (o && !o.disabled) o.click(); }
 });
 
-applyOpt(); addEventListener('hashchange', () => { WANT = location.hash.slice(1); route(); }); route();
+applyOpt(); stamp(true); addEventListener('hashchange', () => { stamp(); WANT = location.hash.slice(1); route(); }); route();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });

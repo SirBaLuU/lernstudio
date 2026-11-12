@@ -1,3 +1,5 @@
 # Stand
 
+- 2026-11-12: **GitHub noch offen:** `gh` ist auf diesem PC nicht installiert und nicht angemeldet; Repo „lernstudio“, Push und Pages fehlen. Lokales Git-Repo (Branch `main`) ist angelegt, alle Schritte sind committet. Samuel: `winget install GitHub.cli`, dann `gh auth login` – danach erledigt der nächste Lauf den Rest.
+- 2026-11-12: Aufgabe 1 Navigation: Brotkrumen „Bibliothek › Thema › Ansicht“ mit Zurück-Knopf in jeder Ansicht, Esc = Zurück, Browser-/Handy-Zurück je Ansicht und je Lektionsstufe (Vortest/Lesen/Abfrage), Lektion und Übungsrunde laufen nach Zurück/Vor an derselben Stelle weiter. „Beenden“ fragt in der Seite nach. Smoke-Test: neuer Navigationstest (390 px). Playwright läuft mit installiertem Chrome (`PW_CHANNEL=chrome`), spart den Chromium-Download.
 - 2026-11-12: Version 1 von Cowork gebaut. Themen Strahlentherapie (923 Fragen) und Chromatographie (242). Lernpfad, Lektionen, Wiederholung, Karteikarten, freies Üben, Testsimulation, Statistik, Optionen (Sichern/Laden). 9 Faktenfehler aus den Unterlagen korrigiert, Nachlese-Links je Kapitel. Smoke-Test grün (Desktop hell, Handy dunkel). Noch nicht auf GitHub.

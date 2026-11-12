@@ -1,0 +1,20 @@
+{
+  "name": "lernstudio",
+  "version": "1.0.0",
+  "description": "Statische Lernseite für den HTL-Unterricht (GitHub Pages). Kurze Lektionen (Vortest → Lesen → Abfrage), Wiederholung nach Plan, Karteikarten, freies Üben und Testsimulation. Fortschritt bleibt im Browser (localStorage), kein Server, kein Login.",
+  "main": "app.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "playwright": "^1.65.0"
+  }
+}

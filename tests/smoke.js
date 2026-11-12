@@ -15,7 +15,7 @@ async function answerCurrent(p, right = true) {
   return t;
 }
 (async () => {
-  const b = await chromium.launch(); const errs = [];
+  const b = await chromium.launch(process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {}); const errs = [];
   for (const [w, h, scheme] of [[1280, 860, 'light'], [390, 844, 'dark']]) {
     const p = await b.newPage({ viewport: { width: w, height: h }, colorScheme: scheme });
     p.on('pageerror', e => errs.push(w + ' ' + e.message));
@@ -55,6 +55,42 @@ async function answerCurrent(p, right = true) {
     await p.fill('#lsearch', 'Bragg'); await p.waitForTimeout(200); if (!(await p.$$eval('.hit', x => x.length))) errs.push(w + ' no hits');
     for (const v of ['statistik', 'optionen']) { await p.evaluate(v => go(v === 'optionen' ? v : 'strahlentherapie/' + v), v); await p.waitForTimeout(800); await p.screenshot({ path: OUT + `${v}_${w}.png` }); }
     const over = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth); if (over > 0) errs.push(w + ' overflow ' + over);
+    await p.close();
+  }
+  // Navigation: jede Ansicht per Browser-Zurück, Zurück-Knopf oder Esc wieder zum Lernpfad (Aufgabe 1)
+  {
+    const p = await b.newPage({ viewport: { width: 390, height: 844 } }); const E = m => errs.push('nav ' + m);
+    p.on('pageerror', e => E(e.message)); p.on('dialog', d => { E('dialog ' + d.message()); d.dismiss(); });
+    const at = async (want, how) => { await p.waitForTimeout(350); const h = await p.evaluate(() => location.hash); if (h !== '#' + want) E(`${how}: ${h} statt #${want}`); };
+    const S = 'strahlentherapie';
+    await p.goto(BASE + '#' + S + '/start'); await p.waitForTimeout(3000);
+    for (const v of ['lernen', 'karten', 'quiz', 'statistik']) {
+      await p.click(`#tabsMob a[href="#${S}/${v}"]`); await at(S + '/' + v, v);
+      if (!(await p.isVisible('#crumbs #back'))) E('kein Zurück-Knopf ' + v);
+      await p.goBack(); await at(S + '/start', 'goBack ' + v);
+      await p.click(`#tabsMob a[href="#${S}/${v}"]`); await at(S + '/' + v, v); await p.click('#crumbs #back'); await at(S + '/start', 'Knopf ' + v);
+    }
+    await p.click('#optLink'); await at('optionen', 'opt'); await p.keyboard.press('Escape'); await at(S + '/start', 'Esc optionen');
+    // Lektion: Vortest → Lesen → Abfrage, Zurück zu Lesen, Vor zur Abfrage an derselben Stelle
+    await p.click('#goNext'); await p.waitForTimeout(300);
+    while ((await p.evaluate(() => LS.stage)) === 'pre') { await answerCurrent(p); await p.click('#v-lektion #next'); }
+    await at(S + '/lektion/read', 'Lesen'); await p.click('#toQuiz'); await at(S + '/lektion/quiz', 'Abfrage');
+    await answerCurrent(p); await p.click('#v-lektion #next'); const i = await p.evaluate(() => R.i);
+    await p.goBack(); await at(S + '/lektion/read', 'goBack Abfrage');
+    await p.goForward(); await at(S + '/lektion/quiz', 'goForward');
+    if ((await p.evaluate(() => R.i)) !== i) E('Lektionsfortschritt verloren');
+    await p.keyboard.press('Escape'); await at(S + '/lektion/read', 'Esc Abfrage');
+    await p.click('#crumbs #back'); await at(S + '/start', 'Knopf Lesen');
+    // Übungsrunde: Zurück behält die Runde, Beenden fragt in der Seite, Ergebnis → Zurück
+    await p.click(`#tabsMob a[href="#${S}/quiz"]`); await p.click('#go'); await at(S + '/quiz/run', 'Runde');
+    await answerCurrent(p); await p.click('#v-quiz #next'); const j = await p.evaluate(() => R.i);
+    await p.goBack(); await at(S + '/quiz', 'goBack Runde'); await p.click('#resume'); await at(S + '/quiz/run', 'Fortsetzen');
+    if ((await p.evaluate(() => R.i)) !== j) E('Rundenfortschritt verloren');
+    await p.click('#quit'); if (!(await p.isVisible('#quitAsk'))) E('keine Nachfrage');
+    await p.click('#quitNo'); await at(S + '/quiz/run', 'Weiter üben');
+    await p.keyboard.press('Escape'); await p.click('#quitYes'); await at(S + '/quiz/ergebnis', 'Beenden');
+    await p.screenshot({ path: OUT + 'nav_ergebnis_390.png' });
+    await p.click('#crumbs #back'); await at(S + '/quiz', 'Zurück Ergebnis'); await p.goBack(); await at(S + '/start', 'zum Lernpfad');
     await p.close();
   }
   console.log(errs.length ? 'ERRORS\n' + errs.join('\n') : 'OK');

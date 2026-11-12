@@ -319,3 +319,16 @@ input[type=date]{border:1px solid var(--line);border-radius:12px;padding:8px 10p
 .levels small{color:var(--muted);font-size:.8rem}
 .tag.rep{background:var(--part-soft);color:var(--part)}
 .big-answer{font-family:var(--display);font-weight:800;font-size:1.4rem;text-align:center}
+
+/* Brotkrumen und Zurück */
+.crumbs{display:flex;align-items:center;gap:6px;margin:14px 0 2px;min-width:0}
+.crumbs #back{padding-left:6px;flex:none}
+.crumbs ol{display:flex;flex-wrap:wrap;align-items:center;gap:4px;list-style:none;margin:0;padding:0;font-size:.88rem;color:var(--muted);min-width:0}
+.crumbs li{display:flex;align-items:center;gap:4px;min-width:0}
+.crumbs li+li::before{content:"›";color:var(--muted)}
+.crumbs a{color:var(--muted);text-decoration:none}
+.crumbs a:hover{color:var(--ink);text-decoration:underline}
+.crumbs [aria-current]{color:var(--ink);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:560px){.crumbs li[aria-current],.crumbs li:has([aria-current]){display:none}}
+.resume,.quit-ask{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 18px}
+.quit-ask{border-color:var(--accent);margin:10px 0}

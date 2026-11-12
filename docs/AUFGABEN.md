@@ -1,6 +1,6 @@
 # Aufgaben (oben = zuerst)
 
-1. **Navigation und Zurück**
+1. [x] **Navigation und Zurück** (erledigt 2026-11-12)
    - Jede Ansicht hat einen sichtbaren Zurück-Weg: Lektion (jede Stufe), Quiz-Runde, Ergebnis, Karteikarten, Lesen, Statistik, Optionen.
    - Browser-/Handy-Zurück führt einen Schritt zurück (Hash-Verlauf je Ansicht, in Lektionen je Stufe), ohne Fortschritt zu verlieren.
    - Brotkrumen „Bibliothek › Thema › Ansicht“ und Esc-Taste.
